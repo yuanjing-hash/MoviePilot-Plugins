@@ -30,6 +30,7 @@ from app.schemas.types import EventType, MediaType
 from app.utils.system import SystemUtils
 
 from .tool import P123AutoClient
+from .utils.tree import DirectoryTree
 
 
 class MediaInfoDownloader:
@@ -432,6 +433,229 @@ class ShareStrmHelper:
             )
 
 
+class IncrementSyncStrmHelper:
+    """
+    增量同步 STRM 文件
+    """
+
+    def __init__(
+        self,
+        client,
+        user_rmt_mediaext: str,
+        user_download_mediaext: str,
+        server_address: str,
+        sync_delete_enabled: bool = False,
+        auto_download_mediainfo: bool = False,
+    ):
+        self.client = client
+        self.sync_delete_enabled = sync_delete_enabled
+        self.rmt_mediaext = [
+            f".{ext.strip()}" for ext in user_rmt_mediaext.replace("，", ",").split(",")
+        ]
+        self.download_mediaext = [
+            f".{ext.strip()}"
+            for ext in user_download_mediaext.replace("，", ",").split(",")
+        ]
+        self.auto_download_mediainfo = auto_download_mediainfo
+        self.strm_count = 0
+        self.mediainfo_count = 0
+        self.strm_fail_count = 0
+        self.mediainfo_fail_count = 0
+        self.remove_unless_strm_count = 0
+        self.strm_fail_dict: Dict[str, str] = {}
+        self.mediainfo_fail_dict: List = None
+        self.server_address = server_address.rstrip("/")
+        self._mediainfodownloader = MediaInfoDownloader(client=self.client)
+        self._storagechain = StorageChain()
+        self.download_mediainfo_list = []
+
+        # 临时文件配置
+        self.local_tree_file = settings.TEMP_PATH / "p123_increment_local_tree.txt"
+        self.pan_tree_file = settings.TEMP_PATH / "p123_increment_pan_tree.txt"
+        self.pan_to_local_tree_file = (
+            settings.TEMP_PATH / "p123_increment_pan_to_local_tree.txt"
+        )
+
+    def __iter_pan_files(self, pan_path: str, local_path: str):
+        """
+        迭代网盘目录文件
+        """
+        try:
+            fileitem = self._storagechain.get_file_item(
+                storage="123云盘", path=Path(pan_path)
+            )
+            parent_id = int(fileitem.fileid)
+        except Exception as e:
+            logger.error(f"【增量STRM生成】网盘媒体目录 ID 获取失败: {e}")
+            return
+
+        for item in iterdir(
+            client=self.client,
+            payload=parent_id,
+            cooldown=1,
+            max_depth=-1,
+            keep_raw=True,
+        ):
+            if item["is_dir"]:
+                continue
+
+            item_pan_path = Path(pan_path) / item["relpath"]
+            
+            if item_pan_path.suffix.lower() in self.rmt_mediaext:
+                item_local_path = (
+                    Path(local_path)
+                    / item_pan_path.relative_to(pan_path)
+                ).with_suffix(".strm")
+                yield str(item_local_path), str(item_pan_path)
+            elif (
+                item_pan_path.suffix.lower() in self.download_mediaext
+                and self.auto_download_mediainfo
+            ):
+                item_local_path = Path(local_path) / item_pan_path.relative_to(pan_path)
+                yield str(item_local_path), str(item_pan_path)
+
+
+    def __generate_trees(self, pan_media_dir: str, target_dir: str):
+        """
+        生成对比用的目录树文件
+        """
+        # 清理旧文件
+        for f in [self.local_tree_file, self.pan_tree_file, self.pan_to_local_tree_file]:
+            if f.exists():
+                f.unlink(missing_ok=True)
+
+        logger.info(f"【增量STRM生成】开始扫描本地媒体库文件: {target_dir}")
+        DirectoryTree().scan_directory_to_tree(
+            root_path=target_dir,
+            output_file=self.local_tree_file,
+            extensions=[".strm"] + self.download_mediaext if self.auto_download_mediainfo else [".strm"],
+        )
+        logger.info(f"【增量STRM生成】扫描本地媒体库文件完成: {target_dir}")
+
+        logger.info(f"【增量STRM生成】开始生成网盘目录树: {pan_media_dir}")
+        with open(
+            self.pan_to_local_tree_file, "a", encoding="utf-8"
+        ) as pan_to_local_f, open(
+            self.pan_tree_file, "a", encoding="utf-8"
+        ) as pan_f:
+            for local_path, pan_path in self.__iter_pan_files(
+                pan_path=pan_media_dir, local_path=target_dir
+            ):
+                pan_to_local_f.write(f"{local_path}\n")
+                pan_f.write(f"{pan_path}\n")
+        logger.info(f"【增量STRM生成】网盘目录树生成完成: {pan_media_dir}")
+
+
+    def __handle_addition(self, pan_path_str: str, local_path_str: str):
+        """
+        处理新增的文件
+        """
+        try:
+            pan_path = Path(pan_path_str)
+            local_path = Path(local_path_str)
+
+            fileitem = self._storagechain.get_file_item(storage="123云盘", path=pan_path)
+            if not fileitem or not fileitem.pickcode:
+                 logger.error(f"【增量STRM生成】获取文件 {pan_path} 信息失败")
+                 self.strm_fail_count += 1
+                 return
+
+            item = ast.literal_eval(fileitem.pickcode)
+
+            if local_path.suffix.lower() in self.download_mediaext:
+                 logger.info(f"【增量STRM生成】新增下载任务: {local_path}")
+                 self.download_mediainfo_list.append(
+                    [
+                        {
+                            "Etag": item["Etag"],
+                            "FileID": int(item["FileId"]),
+                            "FileName": item["FileName"],
+                            "S3KeyFlag": item["S3KeyFlag"],
+                            "Size": int(item["Size"]),
+                        },
+                        str(local_path),
+                    ]
+                 )
+            else: # .strm
+                logger.info(f"【增量STRM生成】新增STRM文件: {local_path}")
+                local_path.parent.mkdir(parents=True, exist_ok=True)
+                strm_url = f"{self.server_address}/api/v1/plugin/P123StrmHelper/redirect_url?apikey={settings.API_TOKEN}&name={item['FileName']}&size={item['Size']}&md5={item['Etag']}&s3_key_flag={item['S3KeyFlag']}"
+                with open(local_path, "w", encoding="utf-8") as file:
+                    file.write(strm_url)
+                self.strm_count += 1
+        except Exception as e:
+            logger.error(f"【增量STRM生成】处理新增文件 {local_path_str} 失败: {e}")
+            self.strm_fail_count += 1
+
+    def __handle_deletion(self, local_path_str: str):
+        """
+        处理删除的文件
+        """
+        try:
+            local_path = Path(local_path_str)
+            if local_path.exists():
+                local_path.unlink()
+                self.remove_unless_strm_count += 1
+                logger.info(f"【增量STRM生成】删除失效文件: {local_path}")
+                try:
+                    if not any(local_path.parent.iterdir()):
+                        local_path.parent.rmdir()
+                        logger.info(f"【增量STRM生成】删除空目录: {local_path.parent}")
+                except OSError:
+                    pass # Directory not empty
+        except Exception as e:
+            logger.error(f"【增量STRM生成】删除文件 {local_path_str} 失败: {e}")
+
+
+    def generate_strm_files(self, sync_strm_paths):
+        """
+        生成 STRM 文件
+        """
+        media_paths = sync_strm_paths.split("\n")
+        for path in media_paths:
+            if not path:
+                continue
+            parts = path.split("#", 1)
+            pan_media_dir = parts[1].rstrip("/")
+            target_dir = parts[0].rstrip("/")
+
+            self.__generate_trees(pan_media_dir=pan_media_dir, target_dir=target_dir)
+
+            logger.info("【增量STRM生成】开始处理新增文件...")
+            pan_to_local_map = {}
+            with open(self.pan_to_local_tree_file, "r", encoding="utf-8") as f1, \
+                 open(self.pan_tree_file, "r", encoding="utf-8") as f2:
+                 for local, pan in zip(f1, f2):
+                     pan_to_local_map[local.strip()] = pan.strip()
+
+            with open(self.local_tree_file, "r", encoding="utf-8") as f:
+                local_set = set(line.strip() for line in f)
+
+            additions = set(pan_to_local_map.keys()) - local_set
+            for local_path_str in additions:
+                pan_path_str = pan_to_local_map[local_path_str]
+                self.__handle_addition(pan_path_str=pan_path_str, local_path_str=local_path_str)
+
+            if self.sync_delete_enabled:
+                logger.info("【增量STRM生成】开始处理删除文件...")
+                deletions = local_set - set(pan_to_local_map.keys())
+                for local_path_str in deletions:
+                    self.__handle_deletion(local_path_str=local_path_str)
+
+        (
+            self.mediainfo_count,
+            self.mediainfo_fail_count,
+            self.mediainfo_fail_dict,
+        ) = self._mediainfodownloader.auto_downloader(
+            downloads_list=self.download_mediainfo_list
+        )
+
+        logger.info(
+            f"【增量STRM生成】完成. 新增: {self.strm_count}, 下载: {self.mediainfo_count}, "
+            f"删除: {self.remove_unless_strm_count}, 失败: {self.strm_fail_count + self.mediainfo_fail_count}"
+        )
+
+
 class P123StrmHelper(_PluginBase):
     # 插件名称
     plugin_name = "123云盘STRM助手"
@@ -457,6 +681,8 @@ class P123StrmHelper(_PluginBase):
     _scheduler = None
     _enabled = False
     _once_full_sync_strm = False
+    _once_increment_sync_strm = False
+    _sync_delete_enabled = False
     _passport = None
     _password = None
     moviepilot_address = None
@@ -490,6 +716,8 @@ class P123StrmHelper(_PluginBase):
         if config:
             self._enabled = config.get("enabled")
             self._once_full_sync_strm = config.get("once_full_sync_strm")
+            self._once_increment_sync_strm = config.get("once_increment_sync_strm")
+            self._sync_delete_enabled = config.get("sync_delete_enabled")
             self._passport = config.get("passport")
             self._password = config.get("password")
             self.moviepilot_address = config.get("moviepilot_address")
@@ -556,6 +784,21 @@ class P123StrmHelper(_PluginBase):
                 name="123云盘助手立刻全量同步",
             )
             self._once_full_sync_strm = False
+            self.__update_config()
+            if self._scheduler.get_jobs():
+                self._scheduler.print_jobs()
+                self._scheduler.start()
+
+        if self._enabled and self._once_increment_sync_strm:
+            self._scheduler = BackgroundScheduler(timezone=settings.TZ)
+            self._scheduler.add_job(
+                func=self.increment_sync_strm_files,
+                trigger="date",
+                run_date=datetime.now(tz=pytz.timezone(settings.TZ))
+                + timedelta(seconds=3),
+                name="123云盘助手立刻增量同步",
+            )
+            self._once_increment_sync_strm = False
             self.__update_config()
             if self._scheduler.get_jobs():
                 self._scheduler.print_jobs()
@@ -838,6 +1081,32 @@ class P123StrmHelper(_PluginBase):
                                 "props": {
                                     "model": "once_full_sync_strm",
                                     "label": "立刻全量同步",
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "component": "VCol",
+                        "props": {"cols": 12, "md": 3},
+                        "content": [
+                            {
+                                "component": "VSwitch",
+                                "props": {
+                                    "model": "once_increment_sync_strm",
+                                    "label": "立刻增量同步",
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "component": "VCol",
+                        "props": {"cols": 12, "md": 3},
+                        "content": [
+                            {
+                                "component": "VSwitch",
+                                "props": {
+                                    "model": "sync_delete_enabled",
+                                    "label": "同步删除",
                                 },
                             }
                         ],
@@ -1350,6 +1619,8 @@ class P123StrmHelper(_PluginBase):
         ], {
             "enabled": False,
             "once_full_sync_strm": False,
+            "once_increment_sync_strm": False,
+            "sync_delete_enabled": False,
             "passport": "",
             "password": "",
             "moviepilot_address": "",
@@ -1385,6 +1656,8 @@ class P123StrmHelper(_PluginBase):
             {
                 "enabled": self._enabled,
                 "once_full_sync_strm": self._once_full_sync_strm,
+                "once_increment_sync_strm": self._once_increment_sync_strm,
+                "sync_delete_enabled": self._sync_delete_enabled,
                 "passport": self._passport,
                 "password": self._password,
                 "moviepilot_address": self.moviepilot_address,
@@ -1837,6 +2110,25 @@ class P123StrmHelper(_PluginBase):
                     service.instance.refresh_root_library()
                 else:
                     logger.warning(f"【监控整理STRM生成】{name} 不支持刷新")
+
+    def increment_sync_strm_files(self):
+        """
+        增量同步
+        """
+        if not self._full_sync_strm_paths or not self.moviepilot_address:
+            return
+
+        strm_helper = IncrementSyncStrmHelper(
+            user_rmt_mediaext=self._user_rmt_mediaext,
+            user_download_mediaext=self._user_download_mediaext,
+            auto_download_mediainfo=self._full_sync_auto_download_mediainfo_enabled,
+            client=self._client,
+            server_address=self.moviepilot_address,
+            sync_delete_enabled=self._sync_delete_enabled,
+        )
+        strm_helper.generate_strm_files(
+            sync_strm_paths=self._full_sync_strm_paths,
+        )
 
     def full_sync_strm_files(self):
         """
