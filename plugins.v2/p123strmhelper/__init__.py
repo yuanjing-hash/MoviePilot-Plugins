@@ -658,13 +658,13 @@ class IncrementSyncStrmHelper:
 
 class P123StrmHelper(_PluginBase):
     # 插件名称
-    plugin_name = "123云盘STRM助手"
+    plugin_name = "123云盘STRM助手(增量同步版本)"
     # 插件描述
     plugin_desc = "123云盘STRM生成一条龙服务"
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/DDS-Derek/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "1.0.14"
+    plugin_version = "1.0"
     # 插件作者
     plugin_author = "DDSRem"
     # 作者主页
