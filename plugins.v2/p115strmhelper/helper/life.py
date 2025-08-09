@@ -13,6 +13,7 @@ from ..core.cache import idpathcacher, pantransfercacher, lifeeventcacher
 from ..core.i18n import i18n
 from ..utils.path import PathUtils
 from ..utils.sentry import sentry_manager
+from ..utils.strm import StrmUrlGetter, StrmGenerater
 from ..db_manager.oper import FileDbHelper
 from ..helper.mediainfo_download import MediaInfoDownloader
 
@@ -336,6 +337,8 @@ class MonitorLife:
         """
         _databasehelper = FileDbHelper()
 
+        _get_url = StrmUrlGetter()
+
         pickcode = event["pick_code"]
         file_category = event["file_category"]
         file_id = event["file_id"]
@@ -364,7 +367,7 @@ class MonitorLife:
                         processed.extend(_process_item)
                     if item["is_dir"]:
                         continue
-                    if "creata" in configer.get_config("monitor_life_event_modes"):
+                    if "creata" in configer.get_config("monitor_life_event_modes"):  # pylint: disable=E1135
                         file_path = item["path"]
                         file_path = Path(target_dir) / Path(file_path).relative_to(
                             pan_media_dir
@@ -407,7 +410,17 @@ class MonitorLife:
                         if file_path.suffix.lower() not in self.rmt_mediaext:
                             logger.warn(
                                 "【监控生活事件】跳过网盘路径: %s",
-                                str(file_path).replace(str(target_dir), "", 1),
+                                item["path"],
+                            )
+                            continue
+
+                        if not (
+                            result := StrmGenerater.should_generate_strm(
+                                original_file_name
+                            )
+                        )[1]:
+                            logger.warn(
+                                f"【监控生活事件】{result[0]}，跳过网盘路径: {item['path']}"
                             )
                             continue
 
@@ -427,9 +440,8 @@ class MonitorLife:
                                 f"【监控生活事件】错误的 pickcode 值 {pickcode}，无法生成 STRM 文件"
                             )
                             continue
-                        strm_url = f"{configer.get_config('moviepilot_address').rstrip('/')}/api/v1/plugin/P115StrmHelper/redirect_url?apikey={settings.API_TOKEN}&pickcode={pickcode}"
-                        if configer.get_config("strm_url_format") == "pickname":
-                            strm_url += f"&file_name={original_file_name}"
+
+                        strm_url = _get_url.get_strm_url(pickcode, original_file_name)
 
                         with open(new_file_path, "w", encoding="utf-8") as file:
                             file.write(strm_url)
@@ -475,7 +487,7 @@ class MonitorLife:
             _databasehelper.upsert_batch(
                 _databasehelper.process_life_file_item(event=event, file_path=file_path)
             )
-            if "creata" in configer.get_config("monitor_life_event_modes"):
+            if "creata" in configer.get_config("monitor_life_event_modes"):  # pylint: disable=E1135
                 # 文件情况，直接生成
                 file_path = Path(target_dir) / Path(file_path).relative_to(
                     pan_media_dir
@@ -527,6 +539,14 @@ class MonitorLife:
                     )
                     return
 
+                if not (
+                    result := StrmGenerater.should_generate_strm(original_file_name)
+                )[1]:
+                    logger.warn(
+                        f"【监控生活事件】{result[0]}，跳过网盘路径: {str(file_path).replace(str(target_dir), '', 1)}"
+                    )
+                    return
+
                 new_file_path.parent.mkdir(parents=True, exist_ok=True)
 
                 if not pickcode:
@@ -539,9 +559,8 @@ class MonitorLife:
                         f"【监控生活事件】错误的 pickcode 值 {pickcode}，无法生成 STRM 文件"
                     )
                     return
-                strm_url = f"{configer.get_config('moviepilot_address').rstrip('/')}/api/v1/plugin/P115StrmHelper/redirect_url?apikey={settings.API_TOKEN}&pickcode={pickcode}"
-                if configer.get_config("strm_url_format") == "pickname":
-                    strm_url += f"&file_name={original_file_name}"
+
+                strm_url = _get_url.get_strm_url(pickcode, original_file_name)
 
                 with open(new_file_path, "w", encoding="utf-8") as file:
                     file.write(strm_url)
@@ -733,7 +752,7 @@ class MonitorLife:
             if str(event["file_id"]) in pantransfercacher.creata_pan_transfer_list:
                 # 检查是否命中缓存
                 pantransfercacher.creata_pan_transfer_list.remove(str(event["file_id"]))
-                if "transfer" in configer.get_config("monitor_life_event_modes"):
+                if "transfer" in configer.get_config("monitor_life_event_modes"):  # pylint: disable=E1135
                     self.creata_strm(event=event, file_path=file_path)
             else:
                 self.creata_strm(event=event, file_path=file_path)
@@ -817,7 +836,7 @@ class MonitorLife:
                     if (
                         configer.get_config("monitor_life_enabled")
                         and configer.get_config("monitor_life_paths")
-                        and "remove" in configer.get_config("monitor_life_event_modes")
+                        and "remove" in configer.get_config("monitor_life_event_modes")  # pylint: disable=E1135
                     ):
                         self.remove_strm(event=event)
 
