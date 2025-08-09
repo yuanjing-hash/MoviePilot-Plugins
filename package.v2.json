@@ -291,7 +291,7 @@
         "labels": "云盘",
         "version": "1.0.14",
         "icon": "https://raw.githubusercontent.com/DDS-Derek/MoviePilot-Plugins/main/icons/P123Disk.png",
-        "author": "DDSRem",
+        "author": "yuanjing",
         "level": 1,
         "history": {
             "v1.0.14": "修复无法登入，更新完成需要重启MP",
