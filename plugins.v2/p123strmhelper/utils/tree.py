@@ -29,7 +29,7 @@ class DirectoryTree:
                         continue
                     relative_path = os.path.relpath(
                         os.path.join(root, file), root_path
-                    ).replace("\", "/")
+                    ).replace("\\", "/")
                     f.write(f"{relative_path}\n")
 
     def generate_tree_from_list(
@@ -74,4 +74,3 @@ class DirectoryTree:
             for i, line in enumerate(f, 1):
                 if i == line_number:
                     return line.strip()
-
