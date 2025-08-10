@@ -66,11 +66,13 @@ class P123OpenAutoClient:
             "clientID": self._client_id,
             "clientSecret": self._client_secret,
         }
-        resp = P123Client.open_access_token(payload, headers=self._open_headers)
+        resp = P123Client.open_access_token(
+            payload, headers=self._open_headers)
         check_response(resp)
         token_data = resp.get("data", {})
         self._client = P123Client(token=token_data.get("accessToken", ""))
-        self._token_expiry = self.parse_expired_at(token_data.get("expiredAt", ""))
+        self._token_expiry = self.parse_expired_at(
+            token_data.get("expiredAt", ""))
 
     def __getattr__(self, name):
         if self._client is None:

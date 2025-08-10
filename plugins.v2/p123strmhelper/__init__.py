@@ -541,7 +541,8 @@ class IncrementSyncStrmHelper:
             for local_path, pan_path in self.__iter_pan_files(
                 pan_path=pan_media_dir, local_path=target_dir
             ):
-                pan_to_local_f.write(f"{local_path}\n")
+                relative_local_path = Path(local_path).relative_to(target_dir).as_posix()
+                pan_to_local_f.write(f"{relative_local_path}\n")
                 pan_f.write(f"{pan_path}\n")
         logger.info(f"【增量STRM生成】网盘目录树生成完成: {pan_media_dir}")
 
@@ -634,13 +635,15 @@ class IncrementSyncStrmHelper:
             additions = set(pan_to_local_map.keys()) - local_set
             for local_path_str in additions:
                 pan_path_str = pan_to_local_map[local_path_str]
-                self.__handle_addition(pan_path_str=pan_path_str, local_path_str=local_path_str)
+                absolute_local_path = Path(target_dir) / local_path_str
+                self.__handle_addition(pan_path_str=pan_path_str, local_path_str=str(absolute_local_path))
 
             if self.sync_delete_enabled:
                 logger.info("【增量STRM生成】开始处理删除文件...")
                 deletions = local_set - set(pan_to_local_map.keys())
                 for local_path_str in deletions:
-                    self.__handle_deletion(local_path_str=local_path_str)
+                    absolute_local_path = Path(target_dir) / local_path_str
+                    self.__handle_deletion(local_path_str=str(absolute_local_path))
 
         (
             self.mediainfo_count,
@@ -664,7 +667,7 @@ class P123StrmHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/DDS-Derek/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0"
+    plugin_version = "1.0.15"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页

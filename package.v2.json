@@ -289,11 +289,12 @@
         "name": "123云盘STRM助手",
         "description": "123云盘STRM生成一条龙服务",
         "labels": "云盘",
-        "version": "1.0.14",
+        "version": "1.0.15",
         "icon": "https://raw.githubusercontent.com/DDS-Derek/MoviePilot-Plugins/main/icons/P123Disk.png",
         "author": "yuanjing",
         "level": 1,
         "history": {
+            "v1.0.15": "修复增量同步错误,增强稳定性",
             "v1.0.14": "修复无法登入，更新完成需要重启MP",
             "v1.0.13": "更新最新依赖，修复已知问题",
             "v1.0.12": "更新依赖版本",
