@@ -389,7 +389,8 @@ class ShareStrmHelper:
                 if file_path.suffix not in self.rmt_mediaext:
                     logger.warn(
                         "【分享STRM生成】文件后缀不匹配，跳过网盘路径: %s",
-                        str(file_path).replace(str(self.local_media_path), "", 1),
+                        str(file_path).replace(
+                            str(self.local_media_path), "", 1),
                     )
                     continue
 
@@ -500,7 +501,7 @@ class IncrementSyncStrmHelper:
                 continue
 
             item_pan_path = Path(pan_path) / item["relpath"]
-            
+
             if item_pan_path.suffix.lower() in self.rmt_mediaext:
                 item_local_path = (
                     Path(local_path)
@@ -511,9 +512,9 @@ class IncrementSyncStrmHelper:
                 item_pan_path.suffix.lower() in self.download_mediaext
                 and self.auto_download_mediainfo
             ):
-                item_local_path = Path(local_path) / item_pan_path.relative_to(pan_path)
+                item_local_path = Path(local_path) / \
+                    item_pan_path.relative_to(pan_path)
                 yield str(item_local_path), str(item_pan_path)
-
 
     def __generate_trees(self, pan_media_dir: str, target_dir: str):
         """
@@ -528,7 +529,8 @@ class IncrementSyncStrmHelper:
         DirectoryTree().scan_directory_to_tree(
             root_path=target_dir,
             output_file=self.local_tree_file,
-            extensions=[".strm"] + self.download_mediaext if self.auto_download_mediainfo else [".strm"],
+            extensions=[
+                ".strm"] + self.download_mediaext if self.auto_download_mediainfo else [".strm"],
         )
         logger.info(f"【增量STRM生成】扫描本地媒体库文件完成: {target_dir}")
 
@@ -541,11 +543,11 @@ class IncrementSyncStrmHelper:
             for local_path, pan_path in self.__iter_pan_files(
                 pan_path=pan_media_dir, local_path=target_dir
             ):
-                relative_local_path = Path(local_path).relative_to(target_dir).as_posix()
+                relative_local_path = Path(
+                    local_path).relative_to(target_dir).as_posix()
                 pan_to_local_f.write(f"{relative_local_path}\n")
                 pan_f.write(f"{pan_path}\n")
         logger.info(f"【增量STRM生成】网盘目录树生成完成: {pan_media_dir}")
-
 
     def __handle_addition(self, pan_path_str: str, local_path_str: str):
         """
@@ -555,17 +557,18 @@ class IncrementSyncStrmHelper:
             pan_path = Path(pan_path_str)
             local_path = Path(local_path_str)
 
-            fileitem = self._storagechain.get_file_item(storage="123云盘", path=pan_path)
+            fileitem = self._storagechain.get_file_item(
+                storage="123云盘", path=pan_path)
             if not fileitem or not fileitem.pickcode:
-                 logger.error(f"【增量STRM生成】获取文件 {pan_path} 信息失败")
-                 self.strm_fail_count += 1
-                 return
+                logger.error(f"【增量STRM生成】获取文件 {pan_path} 信息失败")
+                self.strm_fail_count += 1
+                return
 
             item = ast.literal_eval(fileitem.pickcode)
 
             if local_path.suffix.lower() in self.download_mediaext:
-                 logger.info(f"【增量STRM生成】新增下载任务: {local_path}")
-                 self.download_mediainfo_list.append(
+                logger.info(f"【增量STRM生成】新增下载任务: {local_path}")
+                self.download_mediainfo_list.append(
                     [
                         {
                             "Etag": item["Etag"],
@@ -576,8 +579,8 @@ class IncrementSyncStrmHelper:
                         },
                         str(local_path),
                     ]
-                 )
-            else: # .strm
+                )
+            else:  # .strm
                 logger.info(f"【增量STRM生成】新增STRM文件: {local_path}")
                 local_path.parent.mkdir(parents=True, exist_ok=True)
                 strm_url = f"{self.server_address}/api/v1/plugin/P123StrmHelper/redirect_url?apikey={settings.API_TOKEN}&name={item['FileName']}&size={item['Size']}&md5={item['Etag']}&s3_key_flag={item['S3KeyFlag']}"
@@ -603,10 +606,9 @@ class IncrementSyncStrmHelper:
                         local_path.parent.rmdir()
                         logger.info(f"【增量STRM生成】删除空目录: {local_path.parent}")
                 except OSError:
-                    pass # Directory not empty
+                    pass  # Directory not empty
         except Exception as e:
             logger.error(f"【增量STRM生成】删除文件 {local_path_str} 失败: {e}")
-
 
     def generate_strm_files(self, sync_strm_paths):
         """
@@ -620,14 +622,15 @@ class IncrementSyncStrmHelper:
             pan_media_dir = parts[1].rstrip("/")
             target_dir = parts[0].rstrip("/")
 
-            self.__generate_trees(pan_media_dir=pan_media_dir, target_dir=target_dir)
+            self.__generate_trees(
+                pan_media_dir=pan_media_dir, target_dir=target_dir)
 
             logger.info("【增量STRM生成】开始处理新增文件...")
             pan_to_local_map = {}
             with open(self.pan_to_local_tree_file, "r", encoding="utf-8") as f1, \
-                 open(self.pan_tree_file, "r", encoding="utf-8") as f2:
-                 for local, pan in zip(f1, f2):
-                     pan_to_local_map[local.strip()] = pan.strip()
+                    open(self.pan_tree_file, "r", encoding="utf-8") as f2:
+                for local, pan in zip(f1, f2):
+                    pan_to_local_map[local.strip()] = pan.strip()
 
             with open(self.local_tree_file, "r", encoding="utf-8") as f:
                 local_set = set(line.strip() for line in f)
@@ -636,14 +639,16 @@ class IncrementSyncStrmHelper:
             for local_path_str in additions:
                 pan_path_str = pan_to_local_map[local_path_str]
                 absolute_local_path = Path(target_dir) / local_path_str
-                self.__handle_addition(pan_path_str=pan_path_str, local_path_str=str(absolute_local_path))
+                self.__handle_addition(
+                    pan_path_str=pan_path_str, local_path_str=str(absolute_local_path))
 
             if self.sync_delete_enabled:
                 logger.info("【增量STRM生成】开始处理删除文件...")
                 deletions = local_set - set(pan_to_local_map.keys())
                 for local_path_str in deletions:
                     absolute_local_path = Path(target_dir) / local_path_str
-                    self.__handle_deletion(local_path_str=str(absolute_local_path))
+                    self.__handle_deletion(
+                        local_path_str=str(absolute_local_path))
 
         (
             self.mediainfo_count,
@@ -700,6 +705,9 @@ class P123StrmHelper(_PluginBase):
     _timing_full_sync_strm = False
     _full_sync_auto_download_mediainfo_enabled = False
     _cron_full_sync_strm = None
+    _timing_increment_sync_strm = False
+    _increment_sync_auto_download_mediainfo_enabled = False
+    _cron_increment_sync_strm = None
     _full_sync_strm_paths = None
     _mediaservers = None
     _share_strm_enabled = False
@@ -719,14 +727,16 @@ class P123StrmHelper(_PluginBase):
         if config:
             self._enabled = config.get("enabled")
             self._once_full_sync_strm = config.get("once_full_sync_strm")
-            self._once_increment_sync_strm = config.get("once_increment_sync_strm")
+            self._once_increment_sync_strm = config.get(
+                "once_increment_sync_strm")
             self._sync_delete_enabled = config.get("sync_delete_enabled")
             self._passport = config.get("passport")
             self._password = config.get("password")
             self.moviepilot_address = config.get("moviepilot_address")
             self._user_rmt_mediaext = config.get("user_rmt_mediaext")
             self._user_download_mediaext = config.get("user_download_mediaext")
-            self._transfer_monitor_enabled = config.get("transfer_monitor_enabled")
+            self._transfer_monitor_enabled = config.get(
+                "transfer_monitor_enabled")
             self._transfer_monitor_paths = config.get("transfer_monitor_paths")
             self._transfer_monitor_scrape_metadata_enabled = config.get(
                 "transfer_monitor_scrape_metadata_enabled"
@@ -745,6 +755,13 @@ class P123StrmHelper(_PluginBase):
                 "full_sync_auto_download_mediainfo_enabled"
             )
             self._cron_full_sync_strm = config.get("cron_full_sync_strm")
+            self._timing_increment_sync_strm = config.get(
+                "timing_increment_sync_strm")
+            self._increment_sync_auto_download_mediainfo_enabled = config.get(
+                "increment_sync_auto_download_mediainfo_enabled"
+            )
+            self._cron_increment_sync_strm = config.get(
+                "cron_increment_sync_strm")
             self._full_sync_strm_paths = config.get("full_sync_strm_paths")
             self._share_strm_enabled = config.get("share_strm_enabled")
             self._share_strm_auto_download_mediainfo_enabled = config.get(
@@ -754,8 +771,10 @@ class P123StrmHelper(_PluginBase):
             self._user_share_pwd = config.get("user_share_pwd")
             self._user_share_pan_path = config.get("user_share_pan_path")
             self._user_share_local_path = config.get("user_share_local_path")
-            self._clear_recyclebin_enabled = config.get("clear_recyclebin_enabled")
-            self._clear_receive_path_enabled = config.get("clear_receive_path_enabled")
+            self._clear_recyclebin_enabled = config.get(
+                "clear_recyclebin_enabled")
+            self._clear_receive_path_enabled = config.get(
+                "clear_receive_path_enabled")
             self._cron_clear = config.get("cron_clear")
             if not self._user_rmt_mediaext:
                 self._user_rmt_mediaext = "mp4,mkv,ts,iso,rmvb,avi,mov,mpeg,mpg,wmv,3gp,asf,m4v,flv,m2ts,tp,f4v"
@@ -763,6 +782,8 @@ class P123StrmHelper(_PluginBase):
                 self._user_download_mediaext = "srt,ssa,ass"
             if not self._cron_full_sync_strm:
                 self._cron_full_sync_strm = "0 */7 * * *"
+            if not self._cron_increment_sync_strm:
+                self._cron_increment_sync_strm = "0 */2 * * *"
             if not self._cron_clear:
                 self._cron_clear = "0 */7 * * *"
             if not self._user_share_pan_path:
@@ -898,6 +919,20 @@ class P123StrmHelper(_PluginBase):
                     "kwargs": {},
                 }
             )
+        if (
+            self._cron_increment_sync_strm
+            and self._timing_increment_sync_strm
+            and self._full_sync_strm_paths
+        ):
+            cron_service.append(
+                {
+                    "id": "P123StrmHelper_increment_sync_strm_files",
+                    "name": "定期增量同步123媒体库",
+                    "trigger": CronTrigger.from_crontab(self._cron_increment_sync_strm),
+                    "func": self.increment_sync_strm_files,
+                    "kwargs": {},
+                }
+            )
         if self._cron_clear and (
             self._clear_recyclebin_enabled or self._clear_receive_path_enabled
         ):
@@ -975,7 +1010,8 @@ class P123StrmHelper(_PluginBase):
                                     "model": "transfer_monitor_mediaservers",
                                     "label": "媒体服务器",
                                     "items": [
-                                        {"title": config.name, "value": config.name}
+                                        {"title": config.name,
+                                            "value": config.name}
                                         for config in _mediaserver_helper.get_configs().values()
                                     ],
                                 },
@@ -1055,14 +1091,9 @@ class P123StrmHelper(_PluginBase):
                                     "class": "mt-2",
                                 },
                                 "content": [
-                                    {
-                                        "component": "div",
-                                        "text": "媒体服务器映射路径和MP映射路径不一样时请配置此项，如果不配置则无法正常刷新",
-                                    },
-                                    {
-                                        "component": "div",
-                                        "text": "当映射路径一样时可省略此配置",
-                                    },
+                                    {"component": "div",
+                                        "text": "媒体服务器映射路径和MP映射路径不一样时请配置此项，如果不配置则无法正常刷新"},
+                                    {"component": "div", "text": "当映射路径一样时可省略此配置"},
                                 ],
                             },
                         ],
@@ -1201,6 +1232,50 @@ class P123StrmHelper(_PluginBase):
                                 "props": {
                                     "model": "sync_delete_enabled",
                                     "label": "同步删除",
+                                },
+                            }
+                        ],
+                    },
+                ],
+            },
+            {
+                "component": "VRow",
+                "content": [
+                    {
+                        "component": "VCol",
+                        "props": {"cols": 12, "md": 3},
+                        "content": [
+                            {
+                                "component": "VSwitch",
+                                "props": {
+                                    "model": "timing_increment_sync_strm",
+                                    "label": "定期增量同步",
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "component": "VCol",
+                        "props": {"cols": 12, "md": 3},
+                        "content": [
+                            {
+                                "component": "VCronField",
+                                "props": {
+                                    "model": "cron_increment_sync_strm",
+                                    "label": "运行增量同步周期",
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "component": "VCol",
+                        "props": {"cols": 12, "md": 3},
+                        "content": [
+                            {
+                                "component": "VSwitch",
+                                "props": {
+                                    "model": "increment_sync_auto_download_mediainfo_enabled",
+                                    "label": "下载媒体数据文件",
                                 },
                             }
                         ],
@@ -1431,293 +1506,300 @@ class P123StrmHelper(_PluginBase):
             },
         ]
 
-        return [
-            {
-                "component": "VCard",
-                "props": {"variant": "outlined", "class": "mb-3"},
-                "content": [
-                    {
-                        "component": "VCardTitle",
-                        "props": {"class": "d-flex align-center"},
-                        "content": [
-                            {
-                                "component": "VIcon",
-                                "props": {
-                                    "icon": "mdi-cog",
-                                    "color": "primary",
-                                    "class": "mr-2",
+        return (
+            [
+                {
+                    "component": "VCard",
+                    "props": {"variant": "outlined", "class": "mb-3"},
+                    "content": [
+                        {
+                            "component": "VCardTitle",
+                            "props": {"class": "d-flex align-center"},
+                            "content": [
+                                {
+                                    "component": "VIcon",
+                                    "props": {
+                                        "icon": "mdi-cog",
+                                        "color": "primary",
+                                        "class": "mr-2",
+                                    },
                                 },
-                            },
-                            {"component": "span", "text": "基础设置"},
-                        ],
-                    },
-                    {"component": "VDivider"},
-                    {
-                        "component": "VCardText",
-                        "content": [
-                            {
-                                "component": "VRow",
-                                "content": [
-                                    {
-                                        "component": "VCol",
-                                        "props": {"cols": 12, "md": 3},
-                                        "content": [
-                                            {
-                                                "component": "VSwitch",
-                                                "props": {
-                                                    "model": "enabled",
-                                                    "label": "启用插件",
-                                                },
-                                            }
-                                        ],
-                                    },
-                                    {
-                                        "component": "VCol",
-                                        "props": {"cols": 12, "md": 3},
-                                        "content": [
-                                            {
-                                                "component": "VTextField",
-                                                "props": {
-                                                    "model": "passport",
-                                                    "label": "手机号",
-                                                },
-                                            }
-                                        ],
-                                    },
-                                    {
-                                        "component": "VCol",
-                                        "props": {"cols": 12, "md": 3},
-                                        "content": [
-                                            {
-                                                "component": "VTextField",
-                                                "props": {
-                                                    "model": "password",
-                                                    "label": "密码",
-                                                },
-                                            }
-                                        ],
-                                    },
-                                    {
-                                        "component": "VCol",
-                                        "props": {"cols": 12, "md": 3},
-                                        "content": [
-                                            {
-                                                "component": "VTextField",
-                                                "props": {
-                                                    "model": "moviepilot_address",
-                                                    "label": "MoviePilot 内网访问地址",
-                                                },
-                                            }
-                                        ],
-                                    },
-                                ],
-                            },
-                            {
-                                "component": "VRow",
-                                "content": [
-                                    {
-                                        "component": "VCol",
-                                        "props": {"cols": 12},
-                                        "content": [
-                                            {
-                                                "component": "VTextField",
-                                                "props": {
-                                                    "model": "user_rmt_mediaext",
-                                                    "label": "可整理媒体文件扩展名",
-                                                },
-                                            }
-                                        ],
-                                    }
-                                ],
-                            },
-                            {
-                                "component": "VRow",
-                                "content": [
-                                    {
-                                        "component": "VCol",
-                                        "props": {"cols": 12},
-                                        "content": [
-                                            {
-                                                "component": "VTextField",
-                                                "props": {
-                                                    "model": "user_download_mediaext",
-                                                    "label": "可下载媒体数据文件扩展名",
-                                                },
-                                            }
-                                        ],
-                                    }
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            },
+                                {"component": "span", "text": "基础设置"},
+                            ],
+                        },
+                        {"component": "VDivider"},
+                        {
+                            "component": "VCardText",
+                            "content": [
+                                {
+                                    "component": "VRow",
+                                    "content": [
+                                        {
+                                            "component": "VCol",
+                                            "props": {"cols": 12, "md": 3},
+                                            "content": [
+                                                {
+                                                    "component": "VSwitch",
+                                                    "props": {
+                                                        "model": "enabled",
+                                                        "label": "启用插件",
+                                                    },
+                                                }
+                                            ],
+                                        },
+                                        {
+                                            "component": "VCol",
+                                            "props": {"cols": 12, "md": 3},
+                                            "content": [
+                                                {
+                                                    "component": "VTextField",
+                                                    "props": {
+                                                        "model": "passport",
+                                                        "label": "手机号",
+                                                    },
+                                                }
+                                            ],
+                                        },
+                                        {
+                                            "component": "VCol",
+                                            "props": {"cols": 12, "md": 3},
+                                            "content": [
+                                                {
+                                                    "component": "VTextField",
+                                                    "props": {
+                                                        "model": "password",
+                                                        "label": "密码",
+                                                    },
+                                                }
+                                            ],
+                                        },
+                                        {
+                                            "component": "VCol",
+                                            "props": {"cols": 12, "md": 3},
+                                            "content": [
+                                                {
+                                                    "component": "VTextField",
+                                                    "props": {
+                                                        "model": "moviepilot_address",
+                                                        "label": "MoviePilot 内网访问地址",
+                                                    },
+                                                }
+                                            ],
+                                        },
+                                    ],
+                                },
+                                {
+                                    "component": "VRow",
+                                    "content": [
+                                        {
+                                            "component": "VCol",
+                                            "props": {"cols": 12},
+                                            "content": [
+                                                {
+                                                    "component": "VTextField",
+                                                    "props": {
+                                                        "model": "user_rmt_mediaext",
+                                                        "label": "可整理媒体文件扩展名",
+                                                    },
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                },
+                                {
+                                    "component": "VRow",
+                                    "content": [
+                                        {
+                                            "component": "VCol",
+                                            "props": {"cols": 12},
+                                            "content": [
+                                                {
+                                                    "component": "VTextField",
+                                                    "props": {
+                                                        "model": "user_download_mediaext",
+                                                        "label": "可下载媒体数据文件扩展名",
+                                                    },
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "component": "VCard",
+                    "props": {"variant": "outlined"},
+                    "content": [
+                        {
+                            "component": "VTabs",
+                            "props": {"model": "tab", "grow": True, "color": "primary"},
+                            "content": [
+                                {
+                                    "component": "VTab",
+                                    "props": {"value": "tab-transfer"},
+                                    "content": [
+                                        {
+                                            "component": "VIcon",
+                                            "props": {
+                                                "icon": "mdi-file-move-outline",
+                                                "start": True,
+                                                "color": "#1976D2",
+                                            },
+                                        },
+                                        {"component": "span", "text": "监控MP整理"},
+                                    ],
+                                },
+                                {
+                                    "component": "VTab",
+                                    "props": {"value": "tab-sync"},
+                                    "content": [
+                                        {
+                                            "component": "VIcon",
+                                            "props": {
+                                                "icon": "mdi-sync",
+                                                "start": True,
+                                                "color": "#4CAF50",
+                                            },
+                                        },
+                                        {"component": "span", "text": "全量同步"},
+                                    ],
+                                },
+                                {
+                                    "component": "VTab",
+                                    "props": {"value": "tab-increment-sync"},
+                                    "content": [
+                                        {
+                                            "component": "VIcon",
+                                            "props": {
+                                                "icon": "mdi-sync-circle",
+                                                "start": True,
+                                                "color": "#FFC107",
+                                            },
+                                        },
+                                        {"component": "span", "text": "增量同步"},
+                                    ],
+                                },
+                                {
+                                    "component": "VTab",
+                                    "props": {"value": "tab-share"},
+                                    "content": [
+                                        {
+                                            "component": "VIcon",
+                                            "props": {
+                                                "icon": "mdi-share-variant-outline",
+                                                "start": True,
+                                                "color": "#009688",
+                                            },
+                                        },
+                                        {"component": "span", "text": "分享生成STRM"},
+                                    ],
+                                },
+                                {
+                                    "component": "VTab",
+                                    "props": {"value": "tab-cleanup"},
+                                    "content": [
+                                        {
+                                            "component": "VIcon",
+                                            "props": {
+                                                "icon": "mdi-broom",
+                                                "start": True,
+                                                "color": "#FF9800",
+                                            },
+                                        },
+                                        {"component": "span", "text": "定期清理"},
+                                    ],
+                                },
+                            ],
+                        },
+                        {"component": "VDivider"},
+                        {
+                            "component": "VWindow",
+                            "props": {"model": "tab"},
+                            "content": [
+                                {
+                                    "component": "VWindowItem",
+                                    "props": {"value": "tab-transfer"},
+                                    "content": [
+                                        {
+                                            "component": "VCardText",
+                                            "content": transfer_monitor_tab,
+                                        }
+                                    ],
+                                },
+                                {
+                                    "component": "VWindowItem",
+                                    "props": {"value": "tab-sync"},
+                                    "content": [
+                                        {"component": "VCardText",
+                                            "content": full_sync_tab}
+                                    ],
+                                },
+                                {
+                                    "component": "VWindowItem",
+                                    "props": {"value": "tab-increment-sync"},
+                                    "content": [
+                                        {"component": "VCardText",
+                                            "content": increment_sync_tab}
+                                    ],
+                                },
+                                {
+                                    "component": "VWindowItem",
+                                    "props": {"value": "tab-share"},
+                                    "content": [
+                                        {"component": "VCardText",
+                                            "content": share_generate_tab},
+                                    ],
+                                },
+                                {
+                                    "component": "VWindowItem",
+                                    "props": {"value": "tab-cleanup"},
+                                    "content": [
+                                        {"component": "VCardText",
+                                            "content": cleanup_tab}
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
             {
-                "component": "VCard",
-                "props": {"variant": "outlined"},
-                "content": [
-                    {
-                        "component": "VTabs",
-                        "props": {"model": "tab", "grow": True, "color": "primary"},
-                        "content": [
-                            {
-                                "component": "VTab",
-                                "props": {"value": "tab-transfer"},
-                                "content": [
-                                    {
-                                        "component": "VIcon",
-                                        "props": {
-                                            "icon": "mdi-file-move-outline",
-                                            "start": True,
-                                            "color": "#1976D2",
-                                        },
-                                    },
-                                    {"component": "span", "text": "监控MP整理"},
-                                ],
-                            },
-                            {
-                                "component": "VTab",
-                                "props": {"value": "tab-sync"},
-                                "content": [
-                                    {
-                                        "component": "VIcon",
-                                        "props": {
-                                            "icon": "mdi-sync",
-                                            "start": True,
-                                            "color": "#4CAF50",
-                                        },
-                                    },
-                                    {"component": "span", "text": "全量同步"},
-                                ],
-                            },
-                            {
-                                "component": "VTab",
-                                "props": {"value": "tab-increment-sync"},
-                                "content": [
-                                    {
-                                        "component": "VIcon",
-                                        "props": {
-                                            "icon": "mdi-sync-circle",
-                                            "start": True,
-                                            "color": "#FFC107",
-                                        },
-                                    },
-                                    {"component": "span", "text": "增量同步"},
-                                ],
-                            },
-                            {
-                                "component": "VTab",
-                                "props": {"value": "tab-share"},
-                                "content": [
-                                    {
-                                        "component": "VIcon",
-                                        "props": {
-                                            "icon": "mdi-share-variant-outline",
-                                            "start": True,
-                                            "color": "#009688",
-                                        },
-                                    },
-                                    {"component": "span", "text": "分享生成STRM"},
-                                ],
-                            },
-                            {
-                                "component": "VTab",
-                                "props": {"value": "tab-cleanup"},
-                                "content": [
-                                    {
-                                        "component": "VIcon",
-                                        "props": {
-                                            "icon": "mdi-broom",
-                                            "start": True,
-                                            "color": "#FF9800",
-                                        },
-                                    },
-                                    {"component": "span", "text": "定期清理"},
-                                ],
-                            },
-                        ],
-                    },
-                    {"component": "VDivider"},
-                    {
-                        "component": "VWindow",
-                        "props": {"model": "tab"},
-                        "content": [
-                            {
-                                "component": "VWindowItem",
-                                "props": {"value": "tab-transfer"},
-                                "content": [
-                                    {
-                                        "component": "VCardText",
-                                        "content": transfer_monitor_tab,
-                                    }
-                                ],
-                            },
-                            {
-                                "component": "VWindowItem",
-                                "props": {"value": "tab-sync"},
-                                "content": [
-                                    {"component": "VCardText", "content": full_sync_tab}
-                                ],
-                            },
-                            {
-                                "component": "VWindowItem",
-                                "props": {"value": "tab-increment-sync"},
-                                "content": [
-                                    {"component": "VCardText", "content": increment_sync_tab}
-                                ],
-                            },
-                            {
-                                "component": "VWindowItem",
-                                "props": {"value": "tab-share"},
-                                "content": [
-                                    {
-                                        "component": "VCardText",
-                                        "content": share_generate_tab,
-                                    }
-                                ],
-                            },
-                            {
-                                "component": "VWindowItem",
-                                "props": {"value": "tab-cleanup"},
-                                "content": [
-                                    {"component": "VCardText", "content": cleanup_tab}
-                                ],
-                            },
-                        ],
-                    },
-                ],
+                "enabled": False,
+                "once_full_sync_strm": False,
+                "once_increment_sync_strm": False,
+                "sync_delete_enabled": False,
+                "passport": "",
+                "password": "",
+                "moviepilot_address": "",
+                "user_rmt_mediaext": "mp4,mkv,ts,iso,rmvb,avi,mov,mpeg,mpg,wmv,3gp,asf,m4v,flv,m2ts,tp,f4v",
+                "user_download_mediaext": "srt,ssa,ass",
+                "transfer_monitor_enabled": False,
+                "transfer_monitor_paths": "",
+                "transfer_monitor_scrape_metadata_enabled": False,
+                "transfer_mp_mediaserver_paths": "",
+                "transfer_monitor_media_server_refresh_enabled": False,
+                "transfer_monitor_mediaservers": [],
+                "timing_full_sync_strm": False,
+                "full_sync_auto_download_mediainfo_enabled": False,
+                "cron_full_sync_strm": "0 */7 * * *",
+                "timing_increment_sync_strm": False,
+                "increment_sync_auto_download_mediainfo_enabled": False,
+                "cron_increment_sync_strm": "0 */2 * * *",
+                "full_sync_strm_paths": "",
+                "share_strm_enabled": False,
+                "share_strm_auto_download_mediainfo_enabled": False,
+                "user_share_code": "",
+                "user_share_pwd": "",
+                "user_share_pan_path": "/",
+                "user_share_local_path": "",
+                "clear_recyclebin_enabled": False,
+                "clear_receive_path_enabled": False,
+                "cron_clear": "0 */7 * * *",
+                "tab": "tab-transfer",
             },
-        ], {
-            "enabled": False,
-            "once_full_sync_strm": False,
-            "once_increment_sync_strm": False,
-            "sync_delete_enabled": False,
-            "passport": "",
-            "password": "",
-            "moviepilot_address": "",
-            "user_rmt_mediaext": "mp4,mkv,ts,iso,rmvb,avi,mov,mpeg,mpg,wmv,3gp,asf,m4v,flv,m2ts,tp,f4v",
-            "user_download_mediaext": "srt,ssa,ass",
-            "transfer_monitor_enabled": False,
-            "transfer_monitor_paths": "",
-            "transfer_monitor_scrape_metadata_enabled": False,
-            "transfer_mp_mediaserver_paths": "",
-            "transfer_monitor_media_server_refresh_enabled": False,
-            "transfer_monitor_mediaservers": [],
-            "timing_full_sync_strm": False,
-            "full_sync_auto_download_mediainfo_enabled": False,
-            "cron_full_sync_strm": "0 */7 * * *",
-            "full_sync_strm_paths": "",
-            "share_strm_enabled": False,
-            "share_strm_auto_download_mediainfo_enabled": False,
-            "user_share_code": "",
-            "user_share_pwd": "",
-            "user_share_pan_path": "/",
-            "user_share_local_path": "",
-            "clear_recyclebin_enabled": False,
-            "clear_receive_path_enabled": False,
-            "cron_clear": "0 */7 * * *",
-            "tab": "tab-transfer",
-        }
+        )
 
     def get_page(self) -> List[dict]:
         pass
@@ -1743,6 +1825,9 @@ class P123StrmHelper(_PluginBase):
                 "timing_full_sync_strm": self._timing_full_sync_strm,
                 "full_sync_auto_download_mediainfo_enabled": self._full_sync_auto_download_mediainfo_enabled,
                 "cron_full_sync_strm": self._cron_full_sync_strm,
+                "timing_increment_sync_strm": self._timing_increment_sync_strm,
+                "increment_sync_auto_download_mediainfo_enabled": self._increment_sync_auto_download_mediainfo_enabled,
+                "cron_increment_sync_strm": self._cron_increment_sync_strm,
                 "full_sync_strm_paths": self._full_sync_strm_paths,
                 "share_strm_enabled": self._share_strm_enabled,
                 "share_strm_auto_download_mediainfo_enabled": self._share_strm_auto_download_mediainfo_enabled,
@@ -1816,7 +1901,8 @@ class P123StrmHelper(_PluginBase):
                 # 电视剧刮削文件夹
                 # 通过重命名格式判断根目录文件夹
                 # 计算重命名中的文件夹层数
-                rename_format_level = len(settings.TV_RENAME_FORMAT.split("/")) - 1
+                rename_format_level = len(
+                    settings.TV_RENAME_FORMAT.split("/")) - 1
                 if rename_format_level < 1:
                     file_path = Path(path)
                     fileitem = FileItem(
@@ -1830,7 +1916,8 @@ class P123StrmHelper(_PluginBase):
                         modify_time=file_path.stat().st_mtime,
                     )
                 else:
-                    dir_path = Path(Path(path).parents[rename_format_level - 1])
+                    dir_path = Path(
+                        Path(path).parents[rename_format_level - 1])
                     fileitem = FileItem(
                         storage="local",
                         type="dir",
@@ -1851,13 +1938,15 @@ class P123StrmHelper(_PluginBase):
             # 先获取上级目录 meta
             file_type = "dir"
             dir_path = Path(path).parent
-            tem_mediainfo = mediachain.recognize_by_meta(MetaInfoPath(dir_path))
+            tem_mediainfo = mediachain.recognize_by_meta(
+                MetaInfoPath(dir_path))
             # 只有上级目录信息和文件的信息一致时才继续判断上级目录
             if tem_mediainfo and tem_mediainfo.imdb_id == mediainfo.imdb_id:
                 if mediainfo.type == MediaType.TV:
                     # 如果是电视剧，再次获取上级目录媒体信息，兼容电视剧命名，获取 mediainfo
                     dir_path = dir_path.parent
-                    tem_mediainfo = mediachain.recognize_by_meta(MetaInfoPath(dir_path))
+                    tem_mediainfo = mediachain.recognize_by_meta(
+                        MetaInfoPath(dir_path))
                     if tem_mediainfo and tem_mediainfo.imdb_id == mediainfo.imdb_id:
                         # 存在 mediainfo 则使用本级目录
                         finish_path = dir_path
@@ -1918,7 +2007,8 @@ class P123StrmHelper(_PluginBase):
             except Exception as e:
                 logger.error(f"【302跳转服务】转存 {name} 文件失败: {e}")
                 return JSONResponse(
-                    {"state": False, "message": f"转存 {name} 文件失败: {e}"}, 500
+                    {"state": False, "message": f"转存 {name} 文件失败: {e}"},
+                    500,
                 )
         else:
             payload = {
@@ -1930,7 +2020,7 @@ class P123StrmHelper(_PluginBase):
 
         try:
             user_agent = request.headers.get("User-Agent") or b""
-            logger.debug(f"【302跳转服务】获取到客户端UA: {user_agent}")
+            logger.info(f"【302跳转服务】获取到客户端UA: {user_agent}")
             resp = self._client.download_info(
                 payload,
                 base_url="",
@@ -1966,7 +2056,8 @@ class P123StrmHelper(_PluginBase):
                 pan_path = Path(item_dest_path).parent
                 pan_path = str(Path(pan_path))
                 if self.has_prefix(pan_path, pan_media_dir):
-                    pan_path = pan_path[len(pan_media_dir) :].lstrip("/").lstrip("\\")
+                    pan_path = pan_path[len(pan_media_dir):].lstrip(
+                        "/").lstrip("\\")
                 file_path = Path(target_dir) / pan_path
                 file_name = basename + ".strm"
                 new_file_path = file_path / file_name
@@ -2069,249 +2160,119 @@ class P123StrmHelper(_PluginBase):
             return
 
         try:
-            _storagechain = StorageChain()
-            _mediainfodownloader = MediaInfoDownloader(client=self._client)
-
-            if subtitle_list:
-                logger.info("【监控整理STRM生成】开始下载字幕文件")
-                for _path in subtitle_list:
-                    fileitem = _storagechain.get_file_item(
-                        storage="123云盘", path=Path(_path)
-                    )
-                    fileitem_info = ast.literal_eval(fileitem.pickcode)
-                    download_url = _mediainfodownloader.get_download_url(
-                        item={
-                            "Etag": fileitem_info["Etag"],
-                            "FileID": int(fileitem_info["FileId"]),
-                            "FileName": fileitem_info["FileName"],
-                            "S3KeyFlag": fileitem_info["S3KeyFlag"],
-                            "Size": int(fileitem_info["Size"]),
-                        }
-                    )
-                    if not download_url:
-                        logger.error(
-                            f"【监控整理STRM生成】{Path(_path).name} 下载链接获取失败，无法下载该文件"
-                        )
-                        continue
-                    _file_path = Path(local_media_dir) / Path(_path).relative_to(
-                        pan_media_dir
-                    )
-                    _mediainfodownloader.save_mediainfo_file(
-                        file_path=Path(_file_path),
-                        file_name=_file_path.name,
-                        download_url=download_url,
-                    )
-
-            if audio_list:
-                logger.info("【监控整理STRM生成】开始下载音频文件")
-                for _path in audio_list:
-                    fileitem = _storagechain.get_file_item(
-                        storage="123云盘", path=Path(_path)
-                    )
-                    fileitem_info = ast.literal_eval(fileitem.pickcode)
-                    download_url = _mediainfodownloader.get_download_url(
-                        item={
-                            "Etag": fileitem_info["Etag"],
-                            "FileID": int(fileitem_info["FileId"]),
-                            "FileName": fileitem_info["FileName"],
-                            "S3KeyFlag": fileitem_info["S3KeyFlag"],
-                            "Size": int(fileitem_info["Size"]),
-                        }
-                    )
-                    if not download_url:
-                        logger.error(
-                            f"【监控整理STRM生成】{Path(_path).name} 下载链接获取失败，无法下载该文件"
-                        )
-                        continue
-                    _file_path = Path(local_media_dir) / Path(_path).relative_to(
-                        pan_media_dir
-                    )
-                    _mediainfodownloader.save_mediainfo_file(
-                        file_path=Path(_file_path),
-                        file_name=_file_path.name,
-                        download_url=download_url,
-                    )
+            if self._transfer_monitor_scrape_metadata_enabled:
+                self.media_scrape_metadata(
+                    path=strm_target_path,
+                    item_name=item_dest_name,
+                    mediainfo=mediainfo,
+                    meta=meta,
+                )
         except Exception as e:
-            logger.error(f"【监控整理STRM生成】媒体信息文件下载出现未知错误: {e}")
-
-        if self._transfer_monitor_scrape_metadata_enabled:
-            self.media_scrape_metadata(
-                path=strm_target_path,
-                item_name=item_dest_name,
-                mediainfo=mediainfo,
-                meta=meta,
-            )
+            logger.error(f"【监控整理STRM生成】刮削 {strm_target_path} 失败: {e}")
 
         if self._transfer_monitor_media_server_refresh_enabled:
-            if not self.service_infos:
-                return
+            self.refresh_mediaserver(strm_target_path, mediainfo)
 
-            logger.info("【监控整理STRM生成】开始刷新媒体服务器")
-
-            if self._transfer_mp_mediaserver_paths:
-                status, mediaserver_path, moviepilot_path = self.__get_media_path(
-                    self._transfer_mp_mediaserver_paths, strm_target_path
-                )
-                if status:
-                    logger.info("【监控整理STRM生成】刷新媒体服务器目录替换中...")
-                    strm_target_path = strm_target_path.replace(
-                        moviepilot_path, mediaserver_path
-                    ).replace("\\", "/")
-                    logger.info(
-                        f"【监控整理STRM生成】刷新媒体服务器目录替换: {moviepilot_path} --> {mediaserver_path}"
-                    )
-                    logger.info(
-                        f"【监控整理STRM生成】刷新媒体服务器目录: {strm_target_path}"
-                    )
-
-            items = [
-                RefreshMediaItem(
-                    title=mediainfo.title,
-                    year=mediainfo.year,
-                    type=mediainfo.type,
-                    category=mediainfo.category,
-                    target_path=Path(strm_target_path),
-                )
-            ]
-
-            for name, service in self.service_infos.items():
-                if hasattr(service.instance, "refresh_library_by_items"):
-                    service.instance.refresh_library_by_items(items)
-                elif hasattr(service.instance, "refresh_root_library"):
-                    service.instance.refresh_root_library()
-                else:
-                    logger.warning(f"【监控整理STRM生成】{name} 不支持刷新")
-
-    def increment_sync_strm_files(self):
+    def refresh_mediaserver(self, path, mediainfo: MediaInfo = None):
         """
-        增量同步
+        刷新媒体服务器
         """
-        if not self._full_sync_strm_paths or not self.moviepilot_address:
+        if not self.service_infos:
             return
 
-        strm_helper = IncrementSyncStrmHelper(
-            user_rmt_mediaext=self._user_rmt_mediaext,
-            user_download_mediaext=self._user_download_mediaext,
-            auto_download_mediainfo=self._full_sync_auto_download_mediainfo_enabled,
-            client=self._client,
-            server_address=self.moviepilot_address,
-            sync_delete_enabled=self._sync_delete_enabled,
-        )
-        strm_helper.generate_strm_files(
-            sync_strm_paths=self._full_sync_strm_paths,
-        )
-
-    def full_sync_strm_files(self):
-        """
-        全量同步
-        """
-        if not self._full_sync_strm_paths or not self.moviepilot_address:
-            return
-
-        strm_helper = FullSyncStrmHelper(
-            user_rmt_mediaext=self._user_rmt_mediaext,
-            user_download_mediaext=self._user_download_mediaext,
-            auto_download_mediainfo=self._full_sync_auto_download_mediainfo_enabled,
-            client=self._client,
-            server_address=self.moviepilot_address,
-        )
-        strm_helper.generate_strm_files(
-            full_sync_strm_paths=self._full_sync_strm_paths,
-        )
-
-    def share_strm_files(self):
-        """
-        分享生成STRM
-        """
-        if (
-            not self._user_share_pan_path
-            or not self._user_share_local_path
-            or not self.moviepilot_address
-        ):
-            return
-
-        if not self._user_share_code:
-            return
-        share_code = self._user_share_code
-        share_pwd = self._user_share_pwd
-
-        try:
-            strm_helper = ShareStrmHelper(
-                user_rmt_mediaext=self._user_rmt_mediaext,
-                user_download_mediaext=self._user_download_mediaext,
-                auto_download_mediainfo=self._share_strm_auto_download_mediainfo_enabled,
-                client=self._client,
-                server_address=self.moviepilot_address,
-                share_media_path=self._user_share_pan_path,
-                local_media_path=self._user_share_local_path,
-            )
-            strm_helper.get_share_list_creata_strm(
-                parent_id=0,
-                share_code=share_code,
-                share_pwd=share_pwd,
-            )
-        except Exception as e:
-            logger.error(f"【分享STRM生成】运行失败: {e}")
-            return
-
-    def main_cleaner(self):
-        """
-        主清理模块
-        """
-        if self._clear_receive_path_enabled:
-            self.clear_receive_path()
-
-        time.sleep(2)
-
-        if self._clear_recyclebin_enabled:
-            self.clear_recyclebin()
-
-    def clear_recyclebin(self):
-        """
-        清空回收站
-        """
-        try:
-            logger.info("【回收站清理】开始清理回收站")
-            resp = self._client.fs_trash_clear()
-            if resp["code"] == 7301:
-                logger.info("【回收站清理】回收站已清空")
-            else:
-                logger.error(f"【回收站清理】清理回收站运行失败: {resp}")
-        except Exception as e:
-            logger.error(f"【回收站清理】清理回收站运行失败: {e}")
-            return
-
-    def clear_receive_path(self):
-        """
-        清空我的秒传
-        """
-        try:
-            logger.info("【我的秒传清理】开始清理我的秒传")
-            _storagechain = StorageChain()
-            fileitem = _storagechain.get_file_item(
-                storage="123云盘", path=Path("/我的秒传")
-            )
-            if not fileitem:
-                logger.info("【我的秒传清理】我的秒传目录为空，无需清理")
-                return
-            parent_id = int(fileitem.fileid)
-            logger.info(f"【我的秒传清理】我的秒传目录 ID 获取成功: {parent_id}")
-            resp = self._client.fs_trash(parent_id, event="intoRecycle")
-            check_response(resp)
-            logger.info("【我的秒传清理】我的秒传已清空")
-        except Exception as e:
-            logger.error(f"【我的秒传清理】清理我的秒传运行失败: {e}")
-            return
+        for service_name, service_info in self.service_infos.items():
+            logger.info(f"开始刷新媒体服务器：{service_name}")
+            try:
+                service_info.instance.refresh_library(path, mediainfo)
+            except Exception as e:
+                logger.error(f"刷新媒体服务器 {service_name} 失败: {e}")
 
     def stop_service(self):
         """
-        退出插件
+        停止服务
         """
-        try:
-            if self._scheduler:
-                self._scheduler.remove_all_jobs()
-                if self._scheduler.running:
-                    self._scheduler.shutdown()
-                self._scheduler = None
-        except Exception as e:
-            print(str(e))
+        if self._scheduler:
+            if self._scheduler.running:
+                self._scheduler.shutdown()
+                logger.info("123云盘助手服务已停止")
+            self._scheduler = None
+
+    def main_cleaner(self):
+        """
+        清理服务
+        """
+        if self._clear_recyclebin_enabled:
+            logger.info("【123空间清理】开始清理回收站")
+            try:
+                resp = self._client.recycle_purge()
+                check_response(resp)
+                logger.info("【123空间清理】清理回收站成功")
+            except Exception as e:
+                logger.error(f"【123空间清理】清理回收站失败: {e}")
+        if self._clear_receive_path_enabled:
+            logger.info("【123空间清理】开始清理我的秒传")
+            try:
+                resp = self._client.fs_mkdir("我的秒传")
+                check_response(resp)
+                parent_id = resp["data"]["Info"]["FileId"]
+                resp = self._client.fs_remove(parent_id, "我的秒传")
+                check_response(resp)
+                logger.info("【123空间清理】清理我的秒传成功")
+            except Exception as e:
+                logger.error(f"【123空间清理】清理我的秒传失败: {e}")
+
+    def full_sync_strm_files(self):
+        """
+        全量同步 strm
+        """
+        if not self._full_sync_strm_paths:
+            logger.warn("【全量STRM生成】未配置同步目录，跳过")
+            return
+        logger.info("【全量STRM生成】开始")
+        helper = FullSyncStrmHelper(
+            client=self._client,
+            user_rmt_mediaext=self._user_rmt_mediaext,
+            user_download_mediaext=self._user_download_mediaext,
+            server_address=self.moviepilot_address,
+            auto_download_mediainfo=self._full_sync_auto_download_mediainfo_enabled,
+        )
+        helper.generate_strm_files(self._full_sync_strm_paths)
+
+    def increment_sync_strm_files(self):
+        """
+        增量同步 strm
+        """
+        if not self._full_sync_strm_paths:
+            logger.warn("【增量STRM生成】未配置同步目录，跳过")
+            return
+        logger.info("【增量STRM生成】开始")
+        helper = IncrementSyncStrmHelper(
+            client=self._client,
+            user_rmt_mediaext=self._user_rmt_mediaext,
+            user_download_mediaext=self._user_download_mediaext,
+            server_address=self.moviepilot_address,
+            sync_delete_enabled=self._sync_delete_enabled,
+            auto_download_mediainfo=self._increment_sync_auto_download_mediainfo_enabled,
+        )
+        helper.generate_strm_files(self._full_sync_strm_paths)
+
+    def share_strm_files(self):
+        """
+        分享生成 strm
+        """
+        if not self._user_share_code or not self._user_share_local_path:
+            logger.warn("【分享STRM生成】未配置分享码或本地路径，跳过")
+            return
+        logger.info("【分享STRM生成】开始")
+        helper = ShareStrmHelper(
+            client=self._client,
+            user_rmt_mediaext=self._user_rmt_mediaext,
+            user_download_mediaext=self._user_download_mediaext,
+            share_media_path=self._user_share_pan_path,
+            local_media_path=self._user_share_local_path,
+            server_address=self.moviepilot_address,
+            auto_download_mediainfo=self._share_strm_auto_download_mediainfo_enabled,
+        )
+        helper.get_share_list_creata_strm(
+            share_code=self._user_share_code, share_pwd=self._user_share_pwd
+        )
