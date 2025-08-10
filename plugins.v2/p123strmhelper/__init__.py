@@ -1095,32 +1095,6 @@ class P123StrmHelper(_PluginBase):
                             {
                                 "component": "VSwitch",
                                 "props": {
-                                    "model": "once_increment_sync_strm",
-                                    "label": "立刻增量同步",
-                                },
-                            }
-                        ],
-                    },
-                    {
-                        "component": "VCol",
-                        "props": {"cols": 12, "md": 3},
-                        "content": [
-                            {
-                                "component": "VSwitch",
-                                "props": {
-                                    "model": "sync_delete_enabled",
-                                    "label": "同步删除",
-                                },
-                            }
-                        ],
-                    },
-                    {
-                        "component": "VCol",
-                        "props": {"cols": 12, "md": 3},
-                        "content": [
-                            {
-                                "component": "VSwitch",
-                                "props": {
                                     "model": "timing_full_sync_strm",
                                     "label": "定期全量同步",
                                 },
@@ -1170,6 +1144,84 @@ class P123StrmHelper(_PluginBase):
                                     "rows": 5,
                                     "placeholder": "一行一个，格式：本地STRM目录#网盘媒体库目录\n例如：\n/volume1/strm/movies#/媒体库/电影\n/volume1/strm/tv#/媒体库/剧集",
                                     "hint": "全量扫描配置的网盘目录，并在对应的本地目录生成STRM文件。",
+                                    "persistent-hint": True,
+                                },
+                            },
+                            {
+                                "component": "VAlert",
+                                "props": {
+                                    "type": "info",
+                                    "variant": "tonal",
+                                    "density": "compact",
+                                    "class": "mt-2",
+                                },
+                                "content": [
+                                    {"component": "div", "text": "格式示例："},
+                                    {
+                                        "component": "div",
+                                        "props": {"class": "ml-2"},
+                                        "text": "本地路径1#网盘路径1",
+                                    },
+                                    {
+                                        "component": "div",
+                                        "props": {"class": "ml-2"},
+                                        "text": "本地路径2#网盘路径2",
+                                    },
+                                ],
+                            },
+                        ],
+                    }
+                ],
+            },
+        ]
+
+        increment_sync_tab = [
+            {
+                "component": "VRow",
+                "content": [
+                    {
+                        "component": "VCol",
+                        "props": {"cols": 12, "md": 3},
+                        "content": [
+                            {
+                                "component": "VSwitch",
+                                "props": {
+                                    "model": "once_increment_sync_strm",
+                                    "label": "立刻增量同步",
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "component": "VCol",
+                        "props": {"cols": 12, "md": 3},
+                        "content": [
+                            {
+                                "component": "VSwitch",
+                                "props": {
+                                    "model": "sync_delete_enabled",
+                                    "label": "同步删除",
+                                },
+                            }
+                        ],
+                    },
+                ],
+            },
+            {
+                "component": "VRow",
+                "content": [
+                    {
+                        "component": "VCol",
+                        "props": {"cols": 12},
+                        "content": [
+                            {
+                                "component": "VTextarea",
+                                "props": {
+                                    "model": "full_sync_strm_paths",
+                                    "label": "增量同步目录",
+                                    "rows": 5,
+                                    "placeholder": "一行一个，格式：本地STRM目录#网盘媒体库目录\n例如：\n/volume1/strm/movies#/媒体库/电影\n/volume1/strm/tv#/媒体库/剧集",
+                                    "hint": "增量扫描配置的网盘目录，并在对应的本地目录生成STRM文件。",
                                     "persistent-hint": True,
                                 },
                             },
@@ -1307,14 +1359,8 @@ class P123StrmHelper(_PluginBase):
                             "class": "mt-2",
                         },
                         "content": [
-                            {
-                                "component": "div",
-                                "text": "分享链接/分享码和分享密码 只需要二选一配置即可",
-                            },
-                            {
-                                "component": "div",
-                                "text": "同时填写分享链接，分享码和分享密码时，优先读取分享链接",
-                            },
+                            {"component": "div", "text": "分享链接/分享码和分享密码 只需要二选一配置即可"},
+                            {"component": "div", "text": "同时填写分享链接，分享码和分享密码时，优先读取分享链接"},
                         ],
                     },
                 ],
@@ -1546,6 +1592,21 @@ class P123StrmHelper(_PluginBase):
                             },
                             {
                                 "component": "VTab",
+                                "props": {"value": "tab-increment-sync"},
+                                "content": [
+                                    {
+                                        "component": "VIcon",
+                                        "props": {
+                                            "icon": "mdi-sync-circle",
+                                            "start": True,
+                                            "color": "#FFC107",
+                                        },
+                                    },
+                                    {"component": "span", "text": "增量同步"},
+                                ],
+                            },
+                            {
+                                "component": "VTab",
                                 "props": {"value": "tab-share"},
                                 "content": [
                                     {
@@ -1596,6 +1657,13 @@ class P123StrmHelper(_PluginBase):
                                 "props": {"value": "tab-sync"},
                                 "content": [
                                     {"component": "VCardText", "content": full_sync_tab}
+                                ],
+                            },
+                            {
+                                "component": "VWindowItem",
+                                "props": {"value": "tab-increment-sync"},
+                                "content": [
+                                    {"component": "VCardText", "content": increment_sync_tab}
                                 ],
                             },
                             {
