@@ -529,8 +529,7 @@ class IncrementSyncStrmHelper:
         DirectoryTree().scan_directory_to_tree(
             root_path=target_dir,
             output_file=self.local_tree_file,
-            extensions=[
-                ".strm"] + self.download_mediaext if self.auto_download_mediainfo else [".strm"],
+            extensions=[".strm"],
         )
         logger.info(f"【增量STRM生成】扫描本地媒体库文件完成: {target_dir}")
 
@@ -593,22 +592,39 @@ class IncrementSyncStrmHelper:
 
     def __handle_deletion(self, local_path_str: str):
         """
-        处理删除的文件
+        处理删除的文件。
+        此函数现在只接收 .strm 文件路径。
+        它会删除该 .strm 文件，并查找和删除所有同基础名（文件名不含后缀）的关联文件。
         """
         try:
-            local_path = Path(local_path_str)
-            if local_path.exists():
-                local_path.unlink()
-                self.remove_unless_strm_count += 1
-                logger.info(f"【增量STRM生成】删除失效文件: {local_path}")
-                try:
-                    if not any(local_path.parent.iterdir()):
-                        local_path.parent.rmdir()
-                        logger.info(f"【增量STRM生成】删除空目录: {local_path.parent}")
-                except OSError:
-                    pass  # Directory not empty
+            strm_path = Path(local_path_str)
+            if not strm_path.exists() or strm_path.suffix.lower() != '.strm':
+                return
+
+            base_name = strm_path.stem
+            parent_dir = strm_path.parent
+
+            # 1. 删除 .strm 文件本身
+            strm_path.unlink()
+            self.remove_unless_strm_count += 1
+            logger.info(f"【增量STRM生成】删除失效STRM文件: {strm_path}")
+
+            # 2. 查找并删除所有关联文件
+            for file_to_check in parent_dir.iterdir():
+                if file_to_check.is_file() and file_to_check.stem == base_name:
+                    file_to_check.unlink()
+                    logger.info(f"【增量STRM生成】删除关联文件: {file_to_check}")
+
+            # 3. 尝试删除空目录
+            try:
+                if not any(parent_dir.iterdir()):
+                    parent_dir.rmdir()
+                    logger.info(f"【增量STRM生成】删除空目录: {parent_dir}")
+            except OSError:
+                pass  # 目录非空或无权限
+
         except Exception as e:
-            logger.error(f"【增量STRM生成】删除文件 {local_path_str} 失败: {e}")
+            logger.error(f"【增量STRM生成】删除文件及关联文件 {local_path_str} 失败: {e}")
 
     def generate_strm_files(self, sync_strm_paths):
         """
@@ -646,6 +662,11 @@ class IncrementSyncStrmHelper:
                 logger.info("【增量STRM生成】开始处理删除文件...")
                 deletions = local_set - set(pan_to_local_map.keys())
                 for local_path_str in deletions:
+                    # 只将 .strm 文件作为删除操作的触发器
+                    # 任何非 .strm 文件（如孤立的 .srt）将被忽略，以防万一
+                    # 真正的关联文件（.srt, .nfo）删除由 __handle_deletion 内部处理
+                    if not local_path_str.lower().endswith('.strm'):
+                        continue
                     absolute_local_path = Path(target_dir) / local_path_str
                     self.__handle_deletion(
                         local_path_str=str(absolute_local_path))
