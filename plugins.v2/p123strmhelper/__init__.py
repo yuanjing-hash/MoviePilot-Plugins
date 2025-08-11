@@ -529,7 +529,8 @@ class IncrementSyncStrmHelper:
         DirectoryTree().scan_directory_to_tree(
             root_path=target_dir,
             output_file=self.local_tree_file,
-            extensions=[".strm"],
+            extensions=[
+                ".strm"] + self.download_mediaext if self.auto_download_mediainfo else [".strm"],
         )
         logger.info(f"【增量STRM生成】扫描本地媒体库文件完成: {target_dir}")
 
@@ -864,6 +865,97 @@ class P123StrmHelper(_PluginBase):
                 self._scheduler.print_jobs()
                 self._scheduler.start()
 
+    def generate_strm_for_path(self, pan_path: str):
+        """
+        为指定的单个网盘路径生成STRM文件
+        """
+        logger.info(f"【API生成STRM】任务开始，处理网盘路径: {pan_path}")
+
+        # 修正：正确处理扩展名列表，为每一项加上"."
+        rmt_mediaext = [
+            f".{ext.strip()}" for ext in self._user_rmt_mediaext.replace("，", ",").split(",")
+        ]
+        
+        _storagechain = StorageChain()
+
+        # 1. 查找路径映射
+        is_match, local_dir, pan_dir = self.__get_media_path(self._full_sync_strm_paths, pan_path)
+        if not is_match:
+            logger.error(f"【API生成STRM】路径 {pan_path} 在配置中未找到任何映射规则，任务终止。")
+            return
+
+        logger.info(f"【API生成STRM】路径映射成功: {pan_path} -> {local_dir}")
+
+        # 2. 迭代网盘目录并生成STRM
+        strm_count = 0
+        strm_fail_count = 0
+        try:
+            fileitem = _storagechain.get_file_item(storage="123云盘", path=Path(pan_path))
+            parent_id = int(fileitem.fileid)
+        except Exception as e:
+            logger.error(f"【API生成STRM】获取网盘目录 {pan_path} 的ID失败: {e}")
+            return
+
+        for item in iterdir(client=self._client, payload=parent_id, cooldown=1, max_depth=-1, keep_raw=True):
+            if item["is_dir"]:
+                continue
+            
+            item_pan_path = Path(pan_path) / item["relpath"]
+
+            if item_pan_path.suffix.lower() not in rmt_mediaext:
+                continue
+
+            # 计算本地strm文件的完整路径
+            relative_path = item_pan_path.relative_to(pan_dir)
+            strm_local_path = (Path(local_dir) / relative_path).with_suffix(".strm")
+            
+            try:
+                strm_local_path.parent.mkdir(parents=True, exist_ok=True)
+                raw_item = item["raw"]
+                strm_url = f"{self.moviepilot_address}/api/v1/plugin/P123StrmHelper/redirect_url?apikey={settings.API_TOKEN}&name={raw_item['FileName']}&size={raw_item['Size']}&md5={raw_item['Etag']}&s3_key_flag={raw_item['S3KeyFlag']}"
+                
+                with open(strm_local_path, "w", encoding="utf-8") as file:
+                    file.write(strm_url)
+                strm_count += 1
+                logger.info(f"【API生成STRM】成功: {strm_local_path}")
+            except Exception as e:
+                strm_fail_count += 1
+                logger.error(f"【API生成STRM】失败: {strm_local_path}, 原因: {e}")
+                continue
+        
+        logger.info(f"【API生成STRM】任务完成。成功: {strm_count}，失败: {strm_fail_count}")
+
+    async def api_generate_strm_for_path(self, request: Request, apikey: str):
+        """
+        API端点：为指定路径生成STRM文件
+        """
+        # 1. Token 验证
+        if not apikey or apikey != settings.API_TOKEN:
+            return JSONResponse(status_code=401, content={"message": "Unauthorized"})
+
+        # 2. 获取路径参数
+        try:
+            data = await request.json()
+            pan_path = data.get("path")
+            if not pan_path:
+                return JSONResponse(status_code=400, content={"message": "Missing 'path' in request body"})
+        except Exception:
+            return JSONResponse(status_code=400, content={"message": "Invalid JSON body"})
+
+        # 3. 启动后台任务
+        scheduler = BackgroundScheduler(timezone=settings.TZ)
+        scheduler.add_job(
+            func=self.generate_strm_for_path,
+            trigger="date",
+            run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=1),
+            args=[pan_path],
+            name=f"API生成STRM任务_{pan_path}",
+        )
+        scheduler.start()
+        logger.info(f"【API生成STRM】已接受请求，任务在后台启动: {pan_path}")
+
+        return JSONResponse(status_code=202, content={"status": "success", "message": "Task started in background."})
+
     def get_state(self) -> bool:
         return self._enabled
 
@@ -918,6 +1010,13 @@ class P123StrmHelper(_PluginBase):
                 "methods": ["GET", "POST", "HEAD"],
                 "summary": "302跳转",
                 "description": "123云盘302跳转",
+            },
+            {
+                "path": "/generate_for_path",
+                "endpoint": self.api_generate_strm_for_path,
+                "methods": ["POST"],
+                "summary": "为指定网盘路径生成STRM文件",
+                "description": "接收一个网盘路径，根据预设的映射规则生成STRM文件。需要通过URL参数提供'apikey'。",
             }
         ]
 
@@ -2019,7 +2118,7 @@ class P123StrmHelper(_PluginBase):
                     file_size=size,
                     parent_id=resp["data"]["Info"]["FileId"],
                     duplicate=2,
-                )
+                    )
                 check_response(resp)
                 payload = resp["data"]["Info"]
                 logger.info(
