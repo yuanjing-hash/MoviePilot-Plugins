@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.2"
+    plugin_version = "2.0.3"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -1966,44 +1966,41 @@ class P123StrmHelperRemote(_PluginBase):
             logger.info(f"【远程STRM回调】原始回调URL: {callback_url}")
             logger.info(f"【远程STRM回调】插件版本: {self.plugin_version}")
             
-            # 构建完整的回调URL
-            if callback_url.startswith("http"):
-                # 如果callback_url是完整URL，替换主机部分为配置的服务器地址
-                from urllib.parse import urlparse, urlunparse
-                parsed = urlparse(callback_url)
-                # 使用配置的回调服务器地址替换主机部分
-                callback_server_parsed = urlparse(self._callback_server_url)
-                full_callback_url = urlunparse((
-                    callback_server_parsed.scheme,
-                    callback_server_parsed.netloc,
-                    parsed.path,
-                    parsed.params,
-                    parsed.query,
-                    parsed.fragment
-                ))
-            else:
-                # 如果callback_url是相对路径，使用配置的服务器地址
-                full_callback_url = f"{self._callback_server_url.rstrip('/')}{callback_url}"
+            # 构建p123diskremote的远程通知API URL
+            # 应该调用p123diskremote的远程通知API，而不是回调API
+            from urllib.parse import urlparse
+            callback_server_parsed = urlparse(self._callback_server_url)
+            notification_url = f"{callback_server_parsed.scheme}://{callback_server_parsed.netloc}/api/v1/plugin/P123DiskRemote/notify/strm_complete"
             
-            logger.info(f"【远程STRM回调】最终构建的回调URL: {full_callback_url}")
+            logger.info(f"【远程STRM回调】构建的通知URL: {notification_url}")
             
-            callback_data = {
-                "success": strm_result.get("success", False),
-                "message": strm_result.get("message", ""),
-                "strm_path": strm_result.get("strm_path", ""),
-                "media_refresh": strm_result.get("media_refresh", {}),
-                "library_info": strm_result.get("library_info", {}),
-                "timestamp": datetime.now().isoformat()
+            # 构建通知数据
+            notification_data = {
+                "strm_result": strm_result,
+                "callback_info": {
+                    "original_callback_url": callback_url,
+                    "strm_generated_at": datetime.now().isoformat()
+                }
             }
             
+            # 使用MoviePilot内置的API_TOKEN
+            from app.core.config import settings
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {settings.API_TOKEN}"
+            }
+            
+            # 发送请求，跳过SSL验证
             response = requests.post(
-                full_callback_url,
-                json=callback_data,
-                timeout=self._callback_timeout
+                notification_url,
+                json=notification_data,
+                headers=headers,
+                timeout=self._callback_timeout,
+                verify=False  # 跳过SSL验证
             )
             
             if response.status_code == 200:
-                logger.info(f"【远程STRM回调】回调通知发送成功: {full_callback_url}")
+                logger.info(f"【远程STRM回调】回调通知发送成功: {notification_url}")
             else:
                 logger.error(f"【远程STRM回调】回调通知发送失败: {response.status_code} - {response.text}")
                 
