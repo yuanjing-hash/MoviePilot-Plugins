@@ -385,11 +385,12 @@
         "name": "123云盘储存(远程STRM)",
         "description": "使存储支持123云盘，支持远程STRM生成通知。在文件上传完成后自动通知远程STRM服务器，并接收STRM生成完成回调，通过MoviePilot内置通知系统发送入库完成消息。",
         "labels": "云盘,远程",
-        "version": "2.0.9",
+        "version": "2.1.0",
         "icon": "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png",
         "author": "yuanjing",
         "level": 1,
         "history": {
+            "v2.1.0": "优化日志输出：移除冗余的调试日志，仅保留关键信息",
             "v2.0.9": "修复API密钥认证：添加STRM服务器API密钥配置项，解决apikey校验不通过的问题",
             "v2.0.8": "优化通知机制：改用回调模式，在p123_api中直接添加上传完成通知，支持秒传和普通上传的统一处理",
             "v2.0.7": "修复通知逻辑：通过代理模式拦截存储系统的直接调用，确保所有上传操作都触发远程STRM通知",

@@ -58,7 +58,7 @@ class P123DiskRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.9"
+    plugin_version = "2.1.0"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -590,8 +590,6 @@ class P123DiskRemote(_PluginBase):
                 "pan_path": pan_path
             }
             
-            logger.info(f"【远程STRM通知】准备发送通知: file_name={uploaded_file.name}, pan_path={pan_path}")
-            
             # 发送HTTP通知
             headers = {
                 "Content-Type": "application/json"
@@ -751,19 +749,10 @@ class P123DiskRemote(_PluginBase):
         上传完成回调方法
         被p123_api在上传成功后调用
         """
-        logger.info(f"【远程STRM通知】文件上传完成回调: {uploaded_file.name}")
-        
         if self._enable_strm_notification and self._strm_server_url:
             # 检查文件扩展名是否在配置的列表中
-            should_notify = self._should_notify_file(uploaded_file)
-            logger.info(f"【远程STRM通知】文件扩展名检查: {uploaded_file.name} -> {should_notify}")
-            
-            if should_notify:
+            if self._should_notify_file(uploaded_file):
                 self._notify_strm_server(uploaded_file, local_path)
-            else:
-                logger.info(f"【远程STRM通知】文件扩展名不在通知列表中，跳过通知: {uploaded_file.name}")
-        else:
-            logger.info(f"【远程STRM通知】远程STRM通知未启用或URL未配置，跳过通知")
 
     def stop_service(self):
         """
