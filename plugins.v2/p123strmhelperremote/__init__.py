@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.10"
+    plugin_version = "2.0.11"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -1880,10 +1880,6 @@ class P123StrmHelperRemote(_PluginBase):
                 "strm_path": strm_path,
                 "media_refresh": media_refresh_result,
                 "library_info": {
-                    "title": media_info.get("title", ""),
-                    "year": media_info.get("year", ""),
-                    "type": media_info.get("type", ""),
-                    "category": media_info.get("category", ""),
                     "file_name": file_name,
                     "strm_path": strm_path,
                     "pan_path": pan_path
@@ -1932,7 +1928,9 @@ class P123StrmHelperRemote(_PluginBase):
             
             # 计算相对路径 - 参考全量生成的逻辑
             # 构建完整的网盘文件路径
-            full_pan_path = f"{pan_media_dir}/{file_name}" if not pan_path.endswith(file_name) else pan_path
+            full_pan_path = f"{pan_path.rstrip('/')}/{file_name}"
+            
+            logger.info(f"【远程STRM生成】构建完整网盘路径: {full_pan_path}")
             
             # 获取相对于网盘媒体目录的路径
             try:
