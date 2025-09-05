@@ -50,7 +50,7 @@ class P123AutoClient:
         return wrapped
 
 
-class P123DiskRemote(_PluginBase):
+class P123Disk(_PluginBase):
     # 插件名称
     plugin_name = "123云盘储存(远程STRM)"
     # 插件描述
