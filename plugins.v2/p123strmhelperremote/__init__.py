@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.0"
+    plugin_version = "2.0.1"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -1967,11 +1967,24 @@ class P123StrmHelperRemote(_PluginBase):
             
             # 构建完整的回调URL
             if callback_url.startswith("http"):
-                # 如果callback_url是完整URL，直接使用
-                full_callback_url = callback_url
+                # 如果callback_url是完整URL，替换主机部分为配置的服务器地址
+                from urllib.parse import urlparse, urlunparse
+                parsed = urlparse(callback_url)
+                # 使用配置的回调服务器地址替换主机部分
+                callback_server_parsed = urlparse(self._callback_server_url)
+                full_callback_url = urlunparse((
+                    callback_server_parsed.scheme,
+                    callback_server_parsed.netloc,
+                    parsed.path,
+                    parsed.params,
+                    parsed.query,
+                    parsed.fragment
+                ))
             else:
                 # 如果callback_url是相对路径，使用配置的服务器地址
                 full_callback_url = f"{self._callback_server_url.rstrip('/')}{callback_url}"
+            
+            logger.info(f"【远程STRM回调】最终构建的回调URL: {full_callback_url}")
             
             callback_data = {
                 "success": strm_result.get("success", False),
