@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "1.3.0"
+    plugin_version = "1.4.0"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -1829,23 +1829,38 @@ class P123StrmHelperRemote(_PluginBase):
             file_name = file_info.get("file_name", "")
             pan_path = file_info.get("pan_path", "")
             
-            # 这里需要根据你的实际配置来确定本地STRM文件保存路径
-            # 暂时使用一个示例路径，实际使用时需要根据路径映射配置来计算
-            strm_filename = Path(file_name).stem + ".strm"
+            # 根据配置的路径映射来确定本地STRM文件保存路径
+            if not self._transfer_monitor_paths:
+                logger.error("【远程STRM生成】未配置整理事件监控目录，无法确定STRM文件保存路径")
+                return ""
             
-            # 示例：根据网盘路径映射到本地路径
-            # 实际实现时需要根据你的 transfer_monitor_paths 配置来计算
-            local_strm_path = f"/strm/media/{strm_filename}"  # 示例路径
+            # 使用路径映射配置来找到对应的本地目录
+            has_mapping, local_media_dir, pan_media_dir = self.__get_media_path(
+                self._transfer_monitor_paths, pan_path
+            )
+            
+            if not has_mapping:
+                logger.warning(f"【远程STRM生成】网盘路径 {pan_path} 未找到对应的本地路径映射")
+                return ""
+            
+            # 计算相对路径
+            relative_path = pan_path[len(pan_media_dir):].lstrip("/")
+            if not relative_path:
+                relative_path = file_name
+            
+            # 构建本地STRM文件路径
+            strm_filename = Path(relative_path).stem + ".strm"
+            local_strm_path = Path(local_media_dir) / strm_filename
             
             # 创建目录
-            Path(local_strm_path).parent.mkdir(parents=True, exist_ok=True)
+            local_strm_path.parent.mkdir(parents=True, exist_ok=True)
             
             # 写入STRM文件
             with open(local_strm_path, "w", encoding="utf-8") as f:
                 f.write(strm_url)
             
             logger.info(f"【远程STRM生成】STRM文件创建成功: {local_strm_path}")
-            return local_strm_path
+            return str(local_strm_path)
             
         except Exception as e:
             logger.error(f"【远程STRM生成】创建STRM文件时发生错误: {e}")
