@@ -58,7 +58,7 @@ class P123DiskRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "1.6.0"
+    plugin_version = "1.7.0"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -591,7 +591,7 @@ class P123DiskRemote(_PluginBase):
                     "type": "unknown",
                     "category": "未知"
                 },
-                "callback_url": f"{self._strm_server_url}/api/v1/plugin/P123StrmHelperRemote/callback/strm_complete"
+                "callback_url": "/api/v1/plugin/P123DiskRemote/callback/strm_complete"
             }
             
             # 发送HTTP通知 - 使用MoviePilot内置API密钥
