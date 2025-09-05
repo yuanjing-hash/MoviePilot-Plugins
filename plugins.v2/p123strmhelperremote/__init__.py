@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.8"
+    plugin_version = "2.0.9"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -659,13 +659,7 @@ class P123StrmHelperRemote(_PluginBase):
             POST ${NOTIFY_URL}
             Body: {
                 "file_name": "文件名",
-                "pan_path": "网盘路径",
-                "media_info": {
-                    "title": "媒体标题",
-                    "year": "年份",
-                    "type": "movie|tv",
-                    "category": "分类"
-                }
+                "pan_path": "网盘路径"
             }
         """
         return [
@@ -1753,9 +1747,8 @@ class P123StrmHelperRemote(_PluginBase):
             
             file_name = data.get("file_name", "")
             pan_path = data.get("pan_path", "")
-            media_info = data.get("media_info", {})
             
-            logger.info(f"【远程STRM通知】解析后的参数: file_name={file_name}, pan_path={pan_path}, media_info={media_info}")
+            logger.info(f"【远程STRM通知】解析后的参数: file_name={file_name}, pan_path={pan_path}")
             
             if not file_name or not pan_path:
                 logger.error(f"【远程STRM通知】参数验证失败: file_name={file_name}, pan_path={pan_path}")
@@ -1772,7 +1765,7 @@ class P123StrmHelperRemote(_PluginBase):
             logger.info(f"【远程STRM通知】成功获取文件信息: {file_info}")
             
             # 生成STRM文件
-            strm_result = await self._generate_strm_from_notification(file_info, media_info)
+            strm_result = await self._generate_strm_from_notification(file_info)
             
             return JSONResponse({
                 "success": strm_result.get("success", False),
@@ -1839,7 +1832,7 @@ class P123StrmHelperRemote(_PluginBase):
             logger.error(f"【远程STRM通知】详细错误信息: {traceback.format_exc()}")
             return None
 
-    async def _generate_strm_from_notification(self, file_info: dict, media_info: dict) -> dict:
+    async def _generate_strm_from_notification(self, file_info: dict) -> dict:
         """
         根据通知信息生成STRM文件
         """
@@ -1867,7 +1860,7 @@ class P123StrmHelperRemote(_PluginBase):
             logger.info(f"【远程STRM生成】为文件 {file_name} 生成STRM URL: {strm_url}")
             
             # 生成STRM文件
-            strm_path = await self._create_strm_file(file_info, media_info, strm_url)
+            strm_path = await self._create_strm_file(file_info, strm_url)
             
             if not strm_path:
                 return {
@@ -1879,7 +1872,7 @@ class P123StrmHelperRemote(_PluginBase):
                 }
             
             # 刷新媒体服务器
-            media_refresh_result = await self._refresh_media_servers(file_info, media_info, strm_path)
+            media_refresh_result = await self._refresh_media_servers(file_info, strm_path)
             
             return {
                 "success": True,
@@ -1907,7 +1900,7 @@ class P123StrmHelperRemote(_PluginBase):
                 "library_info": {}
             }
 
-    async def _create_strm_file(self, file_info: dict, media_info: dict, strm_url: str) -> str:
+    async def _create_strm_file(self, file_info: dict, strm_url: str) -> str:
         """
         创建STRM文件
         """
@@ -1937,19 +1930,25 @@ class P123StrmHelperRemote(_PluginBase):
                 logger.error(f"【远程STRM生成】可用的路径映射: {self._transfer_monitor_paths}")
                 return ""
             
-            # 计算相对路径
-            relative_path = pan_path[len(pan_media_dir):].lstrip("/")
-            if not relative_path:
-                # 如果相对路径为空，说明文件就在网盘媒体目录的根目录下
+            # 计算相对路径 - 参考全量生成的逻辑
+            # 从完整路径中提取相对于网盘媒体目录的路径
+            if pan_path.startswith(pan_media_dir):
+                relative_path = pan_path[len(pan_media_dir):].lstrip("/")
+            else:
+                # 如果路径不匹配，使用文件名作为相对路径
                 relative_path = file_name
             
             logger.info(f"【远程STRM生成】计算相对路径: {relative_path}")
             
-            # 构建本地STRM文件路径
-            relative_path_obj = Path(relative_path)
-            strm_filename = relative_path_obj.stem + ".strm"
-            # 确保STRM文件与原始文件在同一目录下
-            local_strm_path = Path(local_media_dir) / relative_path_obj.parent / strm_filename
+            # 构建本地STRM文件路径 - 参考全量生成的逻辑
+            if relative_path:
+                # 如果有相对路径，构建完整的本地路径
+                local_strm_path = Path(local_media_dir) / relative_path
+                # 将文件扩展名改为.strm
+                local_strm_path = local_strm_path.with_suffix('.strm')
+            else:
+                # 如果没有相对路径，直接在本地媒体目录下创建
+                local_strm_path = Path(local_media_dir) / f"{Path(file_name).stem}.strm"
             
             logger.info(f"【远程STRM生成】目标STRM文件路径: {local_strm_path}")
             
@@ -1969,7 +1968,7 @@ class P123StrmHelperRemote(_PluginBase):
             logger.error(f"【远程STRM生成】详细错误信息: {traceback.format_exc()}")
             return ""
 
-    async def _refresh_media_servers(self, file_info: dict, media_info: dict, strm_path: str) -> dict:
+    async def _refresh_media_servers(self, file_info: dict, strm_path: str) -> dict:
         """
         刷新媒体服务器
         """

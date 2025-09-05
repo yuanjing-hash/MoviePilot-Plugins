@@ -575,23 +575,10 @@ class P123DiskRemote(_PluginBase):
                 logger.error(f"【远程STRM通知】解析文件信息失败: {e}, pickcode: {uploaded_file.pickcode}")
                 return
             
-            # 构建通知数据
+            # 构建通知数据 - 使用新的简化API格式
             notification_data = {
-                "file_info": {
-                    "file_name": uploaded_file.name,
-                    "file_size": uploaded_file.size,
-                    "file_md5": file_info.get("Etag"),
-                    "s3_key_flag": file_info.get("S3KeyFlag"),
-                    "pan_path": uploaded_file.path,
-                    "upload_time": datetime.now().isoformat()
-                },
-                "media_info": {
-                    "title": local_path.stem,
-                    "year": None,
-                    "type": "unknown",
-                    "category": "未知"
-                },
-                "callback_url": "/api/v1/plugin/P123DiskRemote/callback/strm_complete"
+                "file_name": uploaded_file.name,
+                "pan_path": uploaded_file.path
             }
             
             # 发送HTTP通知 - 使用MoviePilot内置API密钥
