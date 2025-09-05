@@ -58,7 +58,7 @@ class P123DiskRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.1"
+    plugin_version = "2.0.2"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -138,13 +138,6 @@ class P123DiskRemote(_PluginBase):
                 "methods": ["POST"],
                 "summary": "STRM生成完成回调",
                 "description": "接收STRM生成完成回调通知",
-            },
-            {
-                "path": "/notify/strm_complete",
-                "endpoint": self.notify_strm_complete,
-                "methods": ["POST"],
-                "summary": "STRM生成完成通知",
-                "description": "接收远程STRM生成完成通知",
             }
         ]
 
@@ -659,42 +652,6 @@ class P123DiskRemote(_PluginBase):
             return JSONResponse({
                 "success": False,
                 "message": f"处理回调失败: {e}"
-            }, status_code=500)
-
-    async def notify_strm_complete(self, request):
-        """
-        接收远程STRM生成完成通知
-        """
-        try:
-            from fastapi import Request
-            from fastapi.responses import JSONResponse
-            
-            # 解析请求数据
-            data = await request.json()
-            
-            strm_result = data.get("strm_result", {})
-            callback_info = data.get("callback_info", {})
-            
-            logger.info(f"【远程STRM通知】接收到STRM生成完成通知")
-            
-            # 处理STRM生成完成
-            if strm_result.get("success", False):
-                library_info = strm_result.get("library_info", {})
-                media_refresh = strm_result.get("media_refresh", {})
-                
-                if library_info:
-                    await self._handle_library_complete(library_info, media_refresh)
-            
-            return JSONResponse({
-                "success": True,
-                "message": "STRM完成通知接收成功"
-            })
-            
-        except Exception as e:
-            logger.error(f"【远程STRM通知】处理STRM完成通知时发生错误: {e}")
-            return JSONResponse({
-                "success": False,
-                "message": f"处理通知失败: {e}"
             }, status_code=500)
 
     async def _handle_library_complete(self, library_info: dict, media_refresh: dict):

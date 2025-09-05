@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.3"
+    plugin_version = "2.0.4"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -510,8 +510,6 @@ class P123StrmHelperRemote(_PluginBase):
     _cron_clear = None
     # 远程通知相关配置
     _enable_remote_notification = False
-    _callback_timeout = 30
-    _callback_server_url = None
 
     def init_plugin(self, config: dict = None):
         """
@@ -559,8 +557,6 @@ class P123StrmHelperRemote(_PluginBase):
             self._cron_clear = config.get("cron_clear")
             # 远程通知配置
             self._enable_remote_notification = config.get("enable_remote_notification")
-            self._callback_timeout = config.get("callback_timeout", 30)
-            self._callback_server_url = config.get("callback_server_url")
             if not self._user_rmt_mediaext:
                 self._user_rmt_mediaext = "mp4,mkv,ts,iso,rmvb,avi,mov,mpeg,mpg,wmv,3gp,asf,m4v,flv,m2ts,tp,f4v"
             if not self._user_download_mediaext:
@@ -1301,22 +1297,6 @@ class P123StrmHelperRemote(_PluginBase):
                             {
                                 "component": "VRow",
                                 "content": [
-                                    {
-                                        "component": "VCol",
-                                        "props": {"cols": 12},
-                                        "content": [
-                                            {
-                                                "component": "VTextField",
-                                                "props": {
-                                                    "model": "callback_server_url",
-                                                    "label": "回调服务器地址",
-                                                    "placeholder": "http://192.168.1.100:3000",
-                                                    "hint": "用于发送STRM生成完成回调通知的服务器地址，通常是发送上传通知的服务器",
-                                                    "persistent-hint": True,
-                                                },
-                                            }
-                                        ],
-                                    },
                                 ],
                             },
                             {
@@ -1501,8 +1481,6 @@ class P123StrmHelperRemote(_PluginBase):
             "clear_receive_path_enabled": False,
             "cron_clear": "0 */7 * * *",
             "enable_remote_notification": False,
-            "callback_timeout": 30,
-            "callback_server_url": "",
             "tab": "tab-transfer",
         }
 
@@ -1540,8 +1518,6 @@ class P123StrmHelperRemote(_PluginBase):
                 "clear_receive_path_enabled": self._clear_receive_path_enabled,
                 "cron_clear": self._cron_clear,
                 "enable_remote_notification": self._enable_remote_notification,
-                "callback_timeout": self._callback_timeout,
-                "callback_server_url": self._callback_server_url,
             }
         )
 
@@ -1774,10 +1750,6 @@ class P123StrmHelperRemote(_PluginBase):
             # 生成STRM文件
             strm_result = await self._generate_strm_from_notification(file_info, media_info)
             
-            # 发送回调通知
-            if callback_url and strm_result.get("success"):
-                await self._send_callback_notification(callback_url, strm_result)
-            
             return JSONResponse({
                 "success": strm_result.get("success", False),
                 "message": strm_result.get("message", ""),
@@ -1951,61 +1923,6 @@ class P123StrmHelperRemote(_PluginBase):
         except Exception as e:
             logger.error(f"【远程STRM生成】刷新媒体服务器时发生错误: {e}")
             return {"success": False, "message": f"刷新失败: {e}"}
-
-    async def _send_callback_notification(self, callback_url: str, strm_result: dict):
-        """
-        发送STRM生成完成回调通知
-        """
-        try:
-            # 如果没有配置回调服务器地址，使用默认的回调URL
-            if not self._callback_server_url:
-                logger.warning("【远程STRM回调】未配置回调服务器地址，跳过回调通知")
-                return
-            
-            logger.info(f"【远程STRM回调】配置的回调服务器地址: {self._callback_server_url}")
-            logger.info(f"【远程STRM回调】原始回调URL: {callback_url}")
-            logger.info(f"【远程STRM回调】插件版本: {self.plugin_version}")
-            
-            # 构建p123diskremote的远程通知API URL
-            # 应该调用p123diskremote的远程通知API，而不是回调API
-            from urllib.parse import urlparse
-            callback_server_parsed = urlparse(self._callback_server_url)
-            notification_url = f"{callback_server_parsed.scheme}://{callback_server_parsed.netloc}/api/v1/plugin/P123DiskRemote/notify/strm_complete"
-            
-            logger.info(f"【远程STRM回调】构建的通知URL: {notification_url}")
-            
-            # 构建通知数据
-            notification_data = {
-                "strm_result": strm_result,
-                "callback_info": {
-                    "original_callback_url": callback_url,
-                    "strm_generated_at": datetime.now().isoformat()
-                }
-            }
-            
-            # 使用MoviePilot内置的API_TOKEN
-            from app.core.config import settings
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {settings.API_TOKEN}"
-            }
-            
-            # 发送请求，跳过SSL验证
-            response = requests.post(
-                notification_url,
-                json=notification_data,
-                headers=headers,
-                timeout=self._callback_timeout,
-                verify=False  # 跳过SSL验证
-            )
-            
-            if response.status_code == 200:
-                logger.info(f"【远程STRM回调】回调通知发送成功: {notification_url}")
-            else:
-                logger.error(f"【远程STRM回调】回调通知发送失败: {response.status_code} - {response.text}")
-                
-        except Exception as e:
-            logger.error(f"【远程STRM回调】发送回调通知时发生错误: {e}")
 
     @eventmanager.register(EventType.TransferComplete)
     def generate_strm(self, event: Event):
