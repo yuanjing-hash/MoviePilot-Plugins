@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "1.6.0"
+    plugin_version = "1.7.0"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -511,6 +511,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 远程通知相关配置
     _enable_remote_notification = False
     _callback_timeout = 30
+    _callback_server_url = None
 
     def init_plugin(self, config: dict = None):
         """
@@ -559,6 +560,7 @@ class P123StrmHelperRemote(_PluginBase):
             # 远程通知配置
             self._enable_remote_notification = config.get("enable_remote_notification")
             self._callback_timeout = config.get("callback_timeout", 30)
+            self._callback_server_url = config.get("callback_server_url")
             if not self._user_rmt_mediaext:
                 self._user_rmt_mediaext = "mp4,mkv,ts,iso,rmvb,avi,mov,mpeg,mpg,wmv,3gp,asf,m4v,flv,m2ts,tp,f4v"
             if not self._user_download_mediaext:
@@ -1306,6 +1308,27 @@ class P123StrmHelperRemote(_PluginBase):
                                             {
                                                 "component": "VTextField",
                                                 "props": {
+                                                    "model": "callback_server_url",
+                                                    "label": "回调服务器地址",
+                                                    "placeholder": "http://192.168.1.100:3000",
+                                                    "hint": "用于发送STRM生成完成回调通知的服务器地址，通常是发送上传通知的服务器",
+                                                    "persistent-hint": True,
+                                                },
+                                            }
+                                        ],
+                                    },
+                                ],
+                            },
+                            {
+                                "component": "VRow",
+                                "content": [
+                                    {
+                                        "component": "VCol",
+                                        "props": {"cols": 12},
+                                        "content": [
+                                            {
+                                                "component": "VTextField",
+                                                "props": {
                                                     "model": "user_rmt_mediaext",
                                                     "label": "可整理媒体文件扩展名",
                                                 },
@@ -1479,6 +1502,7 @@ class P123StrmHelperRemote(_PluginBase):
             "cron_clear": "0 */7 * * *",
             "enable_remote_notification": False,
             "callback_timeout": 30,
+            "callback_server_url": "",
             "tab": "tab-transfer",
         }
 
@@ -1517,6 +1541,7 @@ class P123StrmHelperRemote(_PluginBase):
                 "cron_clear": self._cron_clear,
                 "enable_remote_notification": self._enable_remote_notification,
                 "callback_timeout": self._callback_timeout,
+                "callback_server_url": self._callback_server_url,
             }
         )
 
@@ -1932,6 +1957,19 @@ class P123StrmHelperRemote(_PluginBase):
         发送STRM生成完成回调通知
         """
         try:
+            # 如果没有配置回调服务器地址，使用默认的回调URL
+            if not self._callback_server_url:
+                logger.warning("【远程STRM回调】未配置回调服务器地址，跳过回调通知")
+                return
+            
+            # 构建完整的回调URL
+            if callback_url.startswith("http"):
+                # 如果callback_url是完整URL，直接使用
+                full_callback_url = callback_url
+            else:
+                # 如果callback_url是相对路径，使用配置的服务器地址
+                full_callback_url = f"{self._callback_server_url.rstrip('/')}{callback_url}"
+            
             callback_data = {
                 "success": strm_result.get("success", False),
                 "message": strm_result.get("message", ""),
@@ -1942,13 +1980,13 @@ class P123StrmHelperRemote(_PluginBase):
             }
             
             response = requests.post(
-                callback_url,
+                full_callback_url,
                 json=callback_data,
                 timeout=self._callback_timeout
             )
             
             if response.status_code == 200:
-                logger.info(f"【远程STRM回调】回调通知发送成功: {callback_url}")
+                logger.info(f"【远程STRM回调】回调通知发送成功: {full_callback_url}")
             else:
                 logger.error(f"【远程STRM回调】回调通知发送失败: {response.status_code} - {response.text}")
                 
