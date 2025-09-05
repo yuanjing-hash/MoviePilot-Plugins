@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.9"
+    plugin_version = "2.0.10"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -1931,23 +1931,21 @@ class P123StrmHelperRemote(_PluginBase):
                 return ""
             
             # 计算相对路径 - 参考全量生成的逻辑
-            # 从完整路径中提取相对于网盘媒体目录的路径
-            if pan_path.startswith(pan_media_dir):
-                relative_path = pan_path[len(pan_media_dir):].lstrip("/")
-            else:
-                # 如果路径不匹配，使用文件名作为相对路径
-                relative_path = file_name
+            # 构建完整的网盘文件路径
+            full_pan_path = f"{pan_media_dir}/{file_name}" if not pan_path.endswith(file_name) else pan_path
             
-            logger.info(f"【远程STRM生成】计算相对路径: {relative_path}")
-            
-            # 构建本地STRM文件路径 - 参考全量生成的逻辑
-            if relative_path:
-                # 如果有相对路径，构建完整的本地路径
+            # 获取相对于网盘媒体目录的路径
+            try:
+                relative_path = Path(full_pan_path).relative_to(pan_media_dir)
+                logger.info(f"【远程STRM生成】计算相对路径: {relative_path}")
+                
+                # 构建本地STRM文件路径 - 参考全量生成的逻辑
                 local_strm_path = Path(local_media_dir) / relative_path
                 # 将文件扩展名改为.strm
                 local_strm_path = local_strm_path.with_suffix('.strm')
-            else:
-                # 如果没有相对路径，直接在本地媒体目录下创建
+            except ValueError:
+                # 如果路径不匹配，直接在本地媒体目录下创建
+                logger.warning(f"【远程STRM生成】路径不匹配，使用文件名: {file_name}")
                 local_strm_path = Path(local_media_dir) / f"{Path(file_name).stem}.strm"
             
             logger.info(f"【远程STRM生成】目标STRM文件路径: {local_strm_path}")
@@ -1981,27 +1979,15 @@ class P123StrmHelperRemote(_PluginBase):
             from app.schemas import RefreshMediaItem
             from app.schemas.types import MediaType
             
-            # 根据媒体类型设置
-            media_type = MediaType.MOVIE if media_info.get("type") == "movie" else MediaType.TV
-            
-            items = [
-                RefreshMediaItem(
-                    title=media_info.get("title", ""),
-                    year=media_info.get("year"),
-                    type=media_type,
-                    category=media_info.get("category", ""),
-                    target_path=Path(strm_path),
-                )
-            ]
+            # 简化媒体服务器刷新，不需要详细的媒体信息
+            # 直接刷新根目录即可
+            items = None
             
             refresh_results = {}
             for name, service in self.service_infos.items():
                 try:
-                    if hasattr(service.instance, "refresh_library_by_items"):
-                        service.instance.refresh_library_by_items(items)
-                        refresh_results[name] = {"success": True, "message": "刷新成功"}
-                        logger.info(f"【远程STRM生成】媒体服务器 {name} 刷新成功")
-                    elif hasattr(service.instance, "refresh_root_library"):
+                    # 简化刷新逻辑，直接刷新根目录
+                    if hasattr(service.instance, "refresh_root_library"):
                         service.instance.refresh_root_library()
                         refresh_results[name] = {"success": True, "message": "根目录刷新成功"}
                         logger.info(f"【远程STRM生成】媒体服务器 {name} 根目录刷新成功")
