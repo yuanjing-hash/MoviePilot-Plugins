@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "1.7.0"
+    plugin_version = "1.7.1"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -1961,6 +1961,9 @@ class P123StrmHelperRemote(_PluginBase):
             if not self._callback_server_url:
                 logger.warning("【远程STRM回调】未配置回调服务器地址，跳过回调通知")
                 return
+            
+            logger.info(f"【远程STRM回调】配置的回调服务器地址: {self._callback_server_url}")
+            logger.info(f"【远程STRM回调】原始回调URL: {callback_url}")
             
             # 构建完整的回调URL
             if callback_url.startswith("http"):

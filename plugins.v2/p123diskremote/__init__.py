@@ -591,7 +591,7 @@ class P123DiskRemote(_PluginBase):
                     "type": "unknown",
                     "category": "未知"
                 },
-                "callback_url": f"{self._strm_server_url}/api/v1/plugin/P123DiskRemote/callback/strm_complete"
+                "callback_url": f"{self._strm_server_url}/api/v1/plugin/P123StrmHelperRemote/callback/strm_complete"
             }
             
             # 发送HTTP通知 - 使用MoviePilot内置API密钥

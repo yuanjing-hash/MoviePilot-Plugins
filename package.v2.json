@@ -402,11 +402,12 @@
         "name": "123云盘STRM助手(远程)",
         "description": "123云盘STRM生成一条龙服务，支持远程通知。接收远程上传完成通知并生成STRM文件，自动刷新媒体服务器，支持完整的入库完成回调通知。",
         "labels": "云盘,STRM,远程",
-        "version": "1.7.0",
+        "version": "1.7.1",
         "icon": "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png",
         "author": "yuanjing",
         "level": 1,
         "history": {
+            "v1.7.1": "添加调试日志，帮助排查回调服务器地址配置问题",
             "v1.7.0": "添加回调服务器地址配置，修复回调通知连接错误问题",
             "v1.6.0": "修复路径匹配逻辑，支持子目录结构，正确生成STRM文件到对应的本地目录结构",
             "v1.5.0": "修复路径匹配逻辑，要求网盘路径与配置完全匹配，确保STRM文件生成到正确的本地目录",
