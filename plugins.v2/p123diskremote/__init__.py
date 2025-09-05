@@ -11,7 +11,7 @@ from app import schemas
 from app.core.event import eventmanager, Event
 from app.log import logger
 from app.plugins import _PluginBase
-from app.schemas.types import ChainEventType
+from app.schemas.types import ChainEventType, EventType
 from app.helper.storage import StorageHelper
 from schemas import StorageOperSelectionEventData, FileItem
 
@@ -643,8 +643,6 @@ class P123DiskRemote(_PluginBase):
         发送MoviePilot内置通知
         """
         try:
-            from app.core.event import eventmanager, Event
-            from app.schemas.types import EventType
             
             title = library_info.get("title", "")
             year = library_info.get("year", "")
