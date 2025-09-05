@@ -58,7 +58,7 @@ class P123DiskRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.6"
+    plugin_version = "2.0.7"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -294,8 +294,8 @@ class P123DiskRemote(_PluginBase):
             return
         event_data: StorageOperSelectionEventData = event.event_data
         if event_data.storage == self._disk_name:
-            # 处理云盘的操作
-            event_data.storage_oper = self._p123_api
+            # 处理云盘的操作，使用包装类来拦截上传操作
+            event_data.storage_oper = self
 
     def list_files(
         self, fileitem: schemas.FileItem, recursion: bool = False
@@ -749,3 +749,45 @@ class P123DiskRemote(_PluginBase):
         退出插件
         """
         pass
+
+    # === 存储API代理方法 ===
+    # 这些方法用于代理_p123_api的调用，其中upload方法会触发远程STRM通知
+    
+    def list(self, fileitem: schemas.FileItem) -> Optional[List[schemas.FileItem]]:
+        """代理list方法"""
+        return self._p123_api.list(fileitem)
+    
+    def create_folder(self, fileitem: schemas.FileItem, name: str) -> Optional[schemas.FileItem]:
+        """代理create_folder方法"""
+        return self._p123_api.create_folder(fileitem=fileitem, name=name)
+    
+    def download(self, fileitem: schemas.FileItem, path: Path) -> Optional[Path]:
+        """代理download方法"""
+        return self._p123_api.download(fileitem, path)
+    
+    def upload(self, fileitem: schemas.FileItem, path: Path, new_name: str = None) -> Optional[schemas.FileItem]:
+        """
+        代理upload方法，并触发远程STRM通知
+        这个方法会被存储系统直接调用
+        """
+        return self.upload_file(fileitem, path, new_name)
+    
+    def delete(self, fileitem: schemas.FileItem) -> Optional[bool]:
+        """代理delete方法"""
+        return self._p123_api.delete(fileitem)
+    
+    def rename(self, fileitem: schemas.FileItem, name: str) -> Optional[bool]:
+        """代理rename方法"""
+        return self._p123_api.rename(fileitem, name)
+    
+    def get_item(self, path: Path) -> Optional[schemas.FileItem]:
+        """代理get_item方法"""
+        return self._p123_api.get_item(path)
+    
+    def get_parent(self, fileitem: schemas.FileItem) -> Optional[schemas.FileItem]:
+        """代理get_parent方法"""
+        return self._p123_api.get_parent(fileitem)
+    
+    def usage(self) -> Optional[schemas.StorageUsage]:
+        """代理usage方法"""
+        return self._p123_api.usage()
