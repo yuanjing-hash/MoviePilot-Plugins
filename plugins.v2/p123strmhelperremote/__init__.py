@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "1.2.0"
+    plugin_version = "1.3.0"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -509,7 +509,6 @@ class P123StrmHelperRemote(_PluginBase):
     _clear_receive_path_enabled = False
     _cron_clear = None
     # 远程通知相关配置
-    _api_key = None
     _enable_remote_notification = False
     _callback_timeout = 30
 
@@ -558,7 +557,6 @@ class P123StrmHelperRemote(_PluginBase):
             self._clear_receive_path_enabled = config.get("clear_receive_path_enabled")
             self._cron_clear = config.get("cron_clear")
             # 远程通知配置
-            self._api_key = config.get("api_key")
             self._enable_remote_notification = config.get("enable_remote_notification")
             self._callback_timeout = config.get("callback_timeout", 30)
             if not self._user_rmt_mediaext:
@@ -1289,20 +1287,6 @@ class P123StrmHelperRemote(_PluginBase):
                                             {
                                                 "component": "VTextField",
                                                 "props": {
-                                                    "model": "api_key",
-                                                    "label": "API密钥",
-                                                    "type": "password",
-                                                },
-                                            }
-                                        ],
-                                    },
-                                    {
-                                        "component": "VCol",
-                                        "props": {"cols": 12, "md": 4},
-                                        "content": [
-                                            {
-                                                "component": "VTextField",
-                                                "props": {
                                                     "model": "callback_timeout",
                                                     "label": "回调超时时间(秒)",
                                                     "type": "number",
@@ -1494,7 +1478,6 @@ class P123StrmHelperRemote(_PluginBase):
             "clear_receive_path_enabled": False,
             "cron_clear": "0 */7 * * *",
             "enable_remote_notification": False,
-            "api_key": "",
             "callback_timeout": 30,
             "tab": "tab-transfer",
         }
@@ -1533,7 +1516,6 @@ class P123StrmHelperRemote(_PluginBase):
                 "clear_receive_path_enabled": self._clear_receive_path_enabled,
                 "cron_clear": self._cron_clear,
                 "enable_remote_notification": self._enable_remote_notification,
-                "api_key": self._api_key,
                 "callback_timeout": self._callback_timeout,
             }
         )
@@ -1727,32 +1709,28 @@ class P123StrmHelperRemote(_PluginBase):
 
         return RedirectResponse(url, 302)
 
-    def _verify_api_key(self, authorization: str = Header(None)) -> bool:
+    def _verify_api_key(self, apikey: str = None) -> bool:
         """
-        验证API密钥
+        验证API密钥 - 使用MoviePilot内置API密钥系统
         """
-        if not self._enable_remote_notification or not self._api_key:
+        if not self._enable_remote_notification:
             return False
         
-        if not authorization:
+        if not apikey:
             return False
             
         try:
-            # 支持 Bearer token 格式
-            if authorization.startswith("Bearer "):
-                token = authorization[7:]
-                return token == self._api_key
-            else:
-                return authorization == self._api_key
+            # 使用MoviePilot内置的API_TOKEN进行验证
+            return apikey == settings.API_TOKEN
         except Exception:
             return False
 
-    async def notify_upload_complete(self, request: Request, authorization: str = Header(None)):
+    async def notify_upload_complete(self, request: Request, apikey: str = None):
         """
         接收上传完成通知并生成STRM
         """
         # 验证API密钥
-        if not self._verify_api_key(authorization):
+        if not self._verify_api_key(apikey):
             raise HTTPException(status_code=401, detail="Invalid API key")
         
         try:

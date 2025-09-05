@@ -58,7 +58,7 @@ class P123DiskRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "1.3.0"
+    plugin_version = "1.4.0"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -79,7 +79,6 @@ class P123DiskRemote(_PluginBase):
     _password = None
     # 远程STRM通知相关配置
     _strm_server_url = None
-    _strm_api_key = None
     _enable_strm_notification = False
 
     def __init__(self):
@@ -111,7 +110,6 @@ class P123DiskRemote(_PluginBase):
             self._password = config.get("password")
             # 远程STRM通知配置
             self._strm_server_url = config.get("strm_server_url")
-            self._strm_api_key = config.get("strm_api_key")
             self._enable_strm_notification = config.get("enable_strm_notification")
 
             try:
@@ -223,20 +221,6 @@ class P123DiskRemote(_PluginBase):
                                     }
                                 ],
                             },
-                            {
-                                "component": "VCol",
-                                "props": {"cols": 12, "md": 4},
-                                "content": [
-                                    {
-                                        "component": "VTextField",
-                                        "props": {
-                                            "model": "strm_api_key",
-                                            "label": "API密钥",
-                                            "type": "password",
-                                        },
-                                    }
-                                ],
-                            },
                         ],
                     },
                 ],
@@ -247,7 +231,6 @@ class P123DiskRemote(_PluginBase):
             "password": "",
             "enable_strm_notification": False,
             "strm_server_url": "",
-            "strm_api_key": "",
         }
 
     def get_page(self) -> List[dict]:
@@ -392,7 +375,7 @@ class P123DiskRemote(_PluginBase):
         result = self._p123_api.upload(fileitem, path, new_name)
         
         # 如果上传成功且启用了远程STRM通知，则发送通知
-        if result and self._enable_strm_notification and self._strm_server_url and self._strm_api_key:
+        if result and self._enable_strm_notification and self._strm_server_url:
             self._notify_strm_server(result, path)
             
         return result
@@ -560,14 +543,17 @@ class P123DiskRemote(_PluginBase):
                 "callback_url": f"{self._strm_server_url}/api/v1/plugin/P123StrmHelperRemote/callback/strm_complete"
             }
             
-            # 发送HTTP通知
+            # 发送HTTP通知 - 使用MoviePilot内置API密钥
             headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self._strm_api_key}"
+                "Content-Type": "application/json"
             }
             
+            # 使用MoviePilot内置的API_TOKEN作为apikey参数
+            from app.core.config import settings
+            url = f"{self._strm_server_url}/api/v1/plugin/P123StrmHelperRemote/notify/upload_complete?apikey={settings.API_TOKEN}"
+            
             response = requests.post(
-                f"{self._strm_server_url}/api/v1/plugin/P123StrmHelperRemote/notify/upload_complete",
+                url,
                 json=notification_data,
                 headers=headers,
                 timeout=30
