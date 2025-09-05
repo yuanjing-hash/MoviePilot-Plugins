@@ -457,7 +457,7 @@ class ShareStrmHelper:
             )
 
 
-class P123StrmHelper(_PluginBase):
+class P123StrmHelperRemote(_PluginBase):
     # 插件名称
     plugin_name = "123云盘STRM助手(远程)"
     # 插件描述
