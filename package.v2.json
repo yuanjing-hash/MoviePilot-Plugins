@@ -380,5 +380,31 @@
             "v1.0.1": "兼容更多友商STRM文件地址，修复STRM地址编码错误",
             "v1.0.0": "发布"
         }
+    },
+    "P123DiskRemote": {
+        "name": "123云盘储存(远程STRM)",
+        "description": "使存储支持123云盘，支持远程STRM生成通知。在文件上传完成后自动通知远程STRM服务器，并接收STRM生成完成回调，通过MoviePilot内置通知系统发送入库完成消息。",
+        "labels": "云盘,远程",
+        "version": "1.2.0",
+        "icon": "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png",
+        "author": "yuanjing",
+        "level": 1,
+        "history": {
+            "v1.2.0": "支持远程STRM生成通知，集成MoviePilot内置通知系统",
+            "v1.1.0": "基础123云盘存储功能"
+        }
+    },
+    "P123StrmHelperRemote": {
+        "name": "123云盘STRM助手(远程)",
+        "description": "123云盘STRM生成一条龙服务，支持远程通知。接收远程上传完成通知并生成STRM文件，自动刷新媒体服务器，支持完整的入库完成回调通知。",
+        "labels": "云盘,STRM,远程",
+        "version": "1.1.0",
+        "icon": "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png",
+        "author": "yuanjing",
+        "level": 1,
+        "history": {
+            "v1.1.0": "支持远程通知接收，自动刷新媒体服务器，完整入库回调",
+            "v1.0.16": "基础STRM生成功能"
+        }
     }
 }
