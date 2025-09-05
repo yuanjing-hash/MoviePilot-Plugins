@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.6"
+    plugin_version = "2.0.7"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -653,6 +653,20 @@ class P123StrmHelperRemote(_PluginBase):
         1. 查询不带 s3_key_flag
            会尝试先秒传到你的网盘的 "/我的秒传" 目录下，名字为 f"{md5}-{size}" 的文件，然后再获取下载链接
             url: ${BASE_URL}&name={name}&size={size}&md5={md5}
+        
+        NOTIFY_URL: {server_url}/api/v1/plugin/P123StrmHelperRemote/notify/upload_complete?apikey={APIKEY}
+        2. 上传完成通知
+            POST ${NOTIFY_URL}
+            Body: {
+                "file_name": "文件名",
+                "pan_path": "网盘路径",
+                "media_info": {
+                    "title": "媒体标题",
+                    "year": "年份",
+                    "type": "movie|tv",
+                    "category": "分类"
+                }
+            }
         """
         return [
             {
@@ -667,7 +681,7 @@ class P123StrmHelperRemote(_PluginBase):
                 "endpoint": self.notify_upload_complete,
                 "methods": ["POST"],
                 "summary": "接收上传完成通知",
-                "description": "接收远程服务器上传完成通知并生成STRM",
+                "description": "接收远程服务器上传完成通知并生成STRM，只需要提供file_name和pan_path，插件会自动从123云盘获取文件信息",
             }
         ]
 
@@ -1726,6 +1740,7 @@ class P123StrmHelperRemote(_PluginBase):
     async def notify_upload_complete(self, request: Request, apikey: str = None):
         """
         接收上传完成通知并生成STRM
+        只需要提供 file_name 和 pan_path，插件会自动从123云盘获取文件信息
         """
         # 验证API密钥
         if not self._verify_api_key(apikey):
@@ -1734,11 +1749,19 @@ class P123StrmHelperRemote(_PluginBase):
         try:
             # 解析请求数据
             data = await request.json()
-            file_info = data.get("file_info", {})
+            file_name = data.get("file_name", "")
+            pan_path = data.get("pan_path", "")
             media_info = data.get("media_info", {})
-            callback_url = data.get("callback_url", "")
             
-            logger.info(f"【远程STRM通知】接收到上传完成通知: {file_info.get('file_name')}")
+            if not file_name or not pan_path:
+                raise HTTPException(status_code=400, detail="file_name 和 pan_path 是必需的参数")
+            
+            logger.info(f"【远程STRM通知】接收到上传完成通知: {file_name} at {pan_path}")
+            
+            # 从123云盘获取文件信息
+            file_info = await self._get_file_info_from_123(pan_path, file_name)
+            if not file_info:
+                raise HTTPException(status_code=404, detail=f"无法在123云盘找到文件: {pan_path}/{file_name}")
             
             # 生成STRM文件
             strm_result = await self._generate_strm_from_notification(file_info, media_info)
@@ -1749,10 +1772,57 @@ class P123StrmHelperRemote(_PluginBase):
                 "strm_path": strm_result.get("strm_path", "")
             })
             
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"【远程STRM通知】处理上传完成通知时发生错误: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def _get_file_info_from_123(self, pan_path: str, file_name: str) -> dict:
+        """
+        从123云盘获取文件信息
+        """
+        try:
+            from app.chain.storage import StorageChain
+            
+            # 构建完整的文件路径
+            full_path = f"{pan_path.rstrip('/')}/{file_name}"
+            
+            # 使用StorageChain获取文件信息
+            storage_chain = StorageChain()
+            file_item = storage_chain.get_file_item(
+                storage="123云盘", 
+                path=Path(full_path)
+            )
+            
+            if not file_item:
+                logger.error(f"【远程STRM通知】无法找到文件: {full_path}")
+                return None
+            
+            # 解析pickcode获取文件详细信息
+            try:
+                file_details = ast.literal_eval(file_item.pickcode)
+            except (ValueError, SyntaxError) as e:
+                logger.error(f"【远程STRM通知】解析文件pickcode失败: {e}, pickcode: {file_item.pickcode}")
+                return None
+            
+            # 构建文件信息
+            file_info = {
+                "file_name": file_name,
+                "file_size": file_details.get("Size", 0),
+                "file_md5": file_details.get("Etag", ""),
+                "s3_key_flag": file_details.get("S3KeyFlag", ""),
+                "pan_path": pan_path,
+                "file_id": file_details.get("FileId", ""),
+                "upload_time": datetime.now().isoformat()
+            }
+            
+            logger.info(f"【远程STRM通知】成功获取文件信息: {file_name}, size: {file_info['file_size']}, md5: {file_info['file_md5']}")
+            return file_info
+            
+        except Exception as e:
+            logger.error(f"【远程STRM通知】从123云盘获取文件信息失败: {e}")
+            return None
 
     async def _generate_strm_from_notification(self, file_info: dict, media_info: dict) -> dict:
         """
@@ -1765,15 +1835,33 @@ class P123StrmHelperRemote(_PluginBase):
             s3_key_flag = file_info.get("s3_key_flag", "")
             pan_path = file_info.get("pan_path", "")
             
+            # 验证必要的文件信息
+            if not file_name or not file_size or not file_md5 or not s3_key_flag:
+                logger.error(f"【远程STRM生成】文件信息不完整: {file_info}")
+                return {
+                    "success": False,
+                    "message": "文件信息不完整，无法生成STRM",
+                    "strm_path": "",
+                    "media_refresh": {"success": False, "message": "文件信息不完整，跳过媒体服务器刷新"},
+                    "library_info": {}
+                }
+            
             # 构建STRM URL - 使用当前插件的名称
             strm_url = f"{self.moviepilot_address.rstrip('/')}/api/v1/plugin/P123StrmHelperRemote/redirect_url?apikey={settings.API_TOKEN}&name={file_name}&size={file_size}&md5={file_md5}&s3_key_flag={s3_key_flag}"
             
-            # 这里需要根据你的配置来确定本地STRM文件保存路径
-            # 暂时返回成功状态，实际实现需要根据你的路径映射配置
             logger.info(f"【远程STRM生成】为文件 {file_name} 生成STRM URL: {strm_url}")
             
-            # 生成STRM文件（这里需要根据实际路径映射配置来实现）
+            # 生成STRM文件
             strm_path = await self._create_strm_file(file_info, media_info, strm_url)
+            
+            if not strm_path:
+                return {
+                    "success": False,
+                    "message": "STRM文件创建失败",
+                    "strm_path": "",
+                    "media_refresh": {"success": False, "message": "STRM文件创建失败，跳过媒体服务器刷新"},
+                    "library_info": {}
+                }
             
             # 刷新媒体服务器
             media_refresh_result = await self._refresh_media_servers(file_info, media_info, strm_path)
