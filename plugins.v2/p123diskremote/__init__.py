@@ -58,7 +58,7 @@ class P123DiskRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "1.4.0"
+    plugin_version = "1.5.0"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -80,6 +80,7 @@ class P123DiskRemote(_PluginBase):
     # 远程STRM通知相关配置
     _strm_server_url = None
     _enable_strm_notification = False
+    _notification_file_extensions = None
 
     def __init__(self):
         """
@@ -111,6 +112,7 @@ class P123DiskRemote(_PluginBase):
             # 远程STRM通知配置
             self._strm_server_url = config.get("strm_server_url")
             self._enable_strm_notification = config.get("enable_strm_notification")
+            self._notification_file_extensions = config.get("notification_file_extensions")
 
             try:
                 self._client = P123AutoClient(self._passport, self._password)
@@ -223,6 +225,27 @@ class P123DiskRemote(_PluginBase):
                             },
                         ],
                     },
+                    {
+                        "component": "VRow",
+                        "content": [
+                            {
+                                "component": "VCol",
+                                "props": {"cols": 12},
+                                "content": [
+                                    {
+                                        "component": "VTextField",
+                                        "props": {
+                                            "model": "notification_file_extensions",
+                                            "label": "通知文件扩展名",
+                                            "placeholder": "mp4,mkv,ts,iso,rmvb,avi,mov,mpeg,mpg,wmv,3gp,asf,m4v,flv,m2ts,tp,f4v",
+                                            "hint": "只有这些扩展名的文件上传完成后才会发送通知，多个扩展名用逗号分隔",
+                                            "persistent-hint": True,
+                                        },
+                                    }
+                                ],
+                            },
+                        ],
+                    },
                 ],
             }
         ], {
@@ -231,6 +254,7 @@ class P123DiskRemote(_PluginBase):
             "password": "",
             "enable_strm_notification": False,
             "strm_server_url": "",
+            "notification_file_extensions": "mp4,mkv,ts,iso,rmvb,avi,mov,mpeg,mpg,wmv,3gp,asf,m4v,flv,m2ts,tp,f4v",
         }
 
     def get_page(self) -> List[dict]:
@@ -374,9 +398,11 @@ class P123DiskRemote(_PluginBase):
 
         result = self._p123_api.upload(fileitem, path, new_name)
         
-        # 如果上传成功且启用了远程STRM通知，则发送通知
+        # 如果上传成功且启用了远程STRM通知，则检查文件扩展名并发送通知
         if result and self._enable_strm_notification and self._strm_server_url:
-            self._notify_strm_server(result, path)
+            # 检查文件扩展名是否在配置的列表中
+            if self._should_notify_file(result):
+                self._notify_strm_server(result, path)
             
         return result
 
@@ -514,6 +540,27 @@ class P123DiskRemote(_PluginBase):
 
         return {"move": "移动", "copy": "复制"}
 
+    def _should_notify_file(self, uploaded_file: schemas.FileItem) -> bool:
+        """
+        检查文件是否应该发送通知
+        :param uploaded_file: 上传完成的文件信息
+        :return: 是否应该发送通知
+        """
+        if not self._notification_file_extensions:
+            # 如果没有配置扩展名，则默认发送所有文件的通知
+            return True
+        
+        # 获取文件扩展名
+        file_extension = uploaded_file.extension
+        if not file_extension:
+            return False
+        
+        # 将配置的扩展名转换为小写列表
+        allowed_extensions = [ext.strip().lower() for ext in self._notification_file_extensions.split(",")]
+        
+        # 检查文件扩展名是否在允许列表中
+        return file_extension.lower() in allowed_extensions
+
     def _notify_strm_server(self, uploaded_file: schemas.FileItem, local_path: Path):
         """
         通知远程STRM服务器文件上传完成
@@ -522,7 +569,11 @@ class P123DiskRemote(_PluginBase):
         """
         try:
             # 解析文件信息
-            file_info = json.loads(uploaded_file.pickcode)
+            try:
+                file_info = json.loads(uploaded_file.pickcode)
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.error(f"【远程STRM通知】解析文件信息失败: {e}, pickcode: {uploaded_file.pickcode}")
+                return
             
             # 构建通知数据
             notification_data = {
