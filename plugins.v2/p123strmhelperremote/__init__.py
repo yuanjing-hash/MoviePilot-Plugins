@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "1.5.0"
+    plugin_version = "1.6.0"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -1536,7 +1536,7 @@ class P123StrmHelperRemote(_PluginBase):
     def __get_media_path(self, paths, media_path):
         """
         获取媒体目录路径
-        要求网盘路径必须与配置中的某一条完全匹配
+        要求网盘路径必须以配置中的某一条开头
         """
         media_paths = paths.split("\n")
         for path in media_paths:
@@ -1545,8 +1545,8 @@ class P123StrmHelperRemote(_PluginBase):
             parts = path.split("#", 1)
             if len(parts) != 2:
                 continue
-            # 完全匹配网盘路径
-            if media_path == parts[1]:
+            # 网盘路径必须以配置的路径开头
+            if media_path.startswith(parts[1]):
                 return True, parts[0], parts[1]
         return False, None, None
 
@@ -1847,9 +1847,17 @@ class P123StrmHelperRemote(_PluginBase):
                 logger.error(f"【远程STRM生成】网盘路径 {pan_path} 未找到对应的本地路径映射，请检查整理事件监控目录配置")
                 return ""
             
-            # 由于网盘路径完全匹配，直接使用文件名构建STRM文件
-            strm_filename = Path(file_name).stem + ".strm"
-            local_strm_path = Path(local_media_dir) / strm_filename
+            # 计算相对路径
+            relative_path = pan_path[len(pan_media_dir):].lstrip("/")
+            if not relative_path:
+                # 如果相对路径为空，说明文件就在网盘媒体目录的根目录下
+                relative_path = file_name
+            
+            # 构建本地STRM文件路径
+            relative_path_obj = Path(relative_path)
+            strm_filename = relative_path_obj.stem + ".strm"
+            # 确保STRM文件与原始文件在同一目录下
+            local_strm_path = Path(local_media_dir) / relative_path_obj.parent / strm_filename
             
             # 创建目录
             local_strm_path.parent.mkdir(parents=True, exist_ok=True)
