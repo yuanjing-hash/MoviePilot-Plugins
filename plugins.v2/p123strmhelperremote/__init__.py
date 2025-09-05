@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.4"
+    plugin_version = "2.0.5"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -668,13 +668,6 @@ class P123StrmHelperRemote(_PluginBase):
                 "methods": ["POST"],
                 "summary": "接收上传完成通知",
                 "description": "接收远程服务器上传完成通知并生成STRM",
-            },
-            {
-                "path": "/callback/strm_complete",
-                "endpoint": self.callback_strm_complete,
-                "methods": ["POST"],
-                "summary": "STRM生成完成回调",
-                "description": "接收STRM生成完成回调通知",
             }
         ]
 
@@ -1760,17 +1753,6 @@ class P123StrmHelperRemote(_PluginBase):
             logger.error(f"【远程STRM通知】处理上传完成通知时发生错误: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def callback_strm_complete(self, request: Request):
-        """
-        接收STRM生成完成回调通知
-        """
-        try:
-            data = await request.json()
-            logger.info(f"【远程STRM回调】接收到STRM生成完成回调: {data}")
-            return JSONResponse({"success": True, "message": "回调接收成功"})
-        except Exception as e:
-            logger.error(f"【远程STRM回调】处理回调通知时发生错误: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
 
     async def _generate_strm_from_notification(self, file_info: dict, media_info: dict) -> dict:
         """
