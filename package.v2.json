@@ -406,11 +406,12 @@
         "name": "123云盘STRM助手(远程)",
         "description": "123云盘STRM生成一条龙服务，支持远程通知。接收远程上传完成通知并生成STRM文件，自动刷新媒体服务器，支持完整的入库完成回调通知。",
         "labels": "云盘,STRM,远程",
-        "version": "2.0.7",
+        "version": "2.0.8",
         "icon": "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png",
         "author": "yuanjing",
         "level": 1,
         "history": {
+            "v2.0.8": "添加详细的调试日志，帮助排查API测试问题，改进错误处理和参数验证",
             "v2.0.7": "优化API设计：notify_upload_complete只需提供file_name和pan_path，插件自动从123云盘获取文件信息",
             "v2.0.6": "修复STRM URL构建：统一使用P123StrmHelperRemote插件名称，解决Etag格式异常问题",
             "v2.0.5": "完全删除回调逻辑：删除callback_strm_complete方法和API端点",

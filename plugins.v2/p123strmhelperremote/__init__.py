@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.7"
+    plugin_version = "2.0.8"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -1749,11 +1749,16 @@ class P123StrmHelperRemote(_PluginBase):
         try:
             # 解析请求数据
             data = await request.json()
+            logger.info(f"【远程STRM通知】接收到的原始数据: {data}")
+            
             file_name = data.get("file_name", "")
             pan_path = data.get("pan_path", "")
             media_info = data.get("media_info", {})
             
+            logger.info(f"【远程STRM通知】解析后的参数: file_name={file_name}, pan_path={pan_path}, media_info={media_info}")
+            
             if not file_name or not pan_path:
+                logger.error(f"【远程STRM通知】参数验证失败: file_name={file_name}, pan_path={pan_path}")
                 raise HTTPException(status_code=400, detail="file_name 和 pan_path 是必需的参数")
             
             logger.info(f"【远程STRM通知】接收到上传完成通知: {file_name} at {pan_path}")
