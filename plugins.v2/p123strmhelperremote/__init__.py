@@ -1761,7 +1761,10 @@ class P123StrmHelperRemote(_PluginBase):
             # 从123云盘获取文件信息
             file_info = await self._get_file_info_from_123(pan_path, file_name)
             if not file_info:
+                logger.error(f"【远程STRM通知】无法从123云盘获取文件信息: {pan_path}/{file_name}")
                 raise HTTPException(status_code=404, detail=f"无法在123云盘找到文件: {pan_path}/{file_name}")
+            
+            logger.info(f"【远程STRM通知】成功获取文件信息: {file_info}")
             
             # 生成STRM文件
             strm_result = await self._generate_strm_from_notification(file_info, media_info)
@@ -1787,6 +1790,7 @@ class P123StrmHelperRemote(_PluginBase):
             
             # 构建完整的文件路径
             full_path = f"{pan_path.rstrip('/')}/{file_name}"
+            logger.info(f"【远程STRM通知】尝试获取文件信息: {full_path}")
             
             # 使用StorageChain获取文件信息
             storage_chain = StorageChain()
@@ -1797,11 +1801,15 @@ class P123StrmHelperRemote(_PluginBase):
             
             if not file_item:
                 logger.error(f"【远程STRM通知】无法找到文件: {full_path}")
+                logger.error(f"【远程STRM通知】请检查文件是否存在于123云盘中")
                 return None
+            
+            logger.info(f"【远程STRM通知】找到文件: {file_item.name}, pickcode: {file_item.pickcode}")
             
             # 解析pickcode获取文件详细信息
             try:
                 file_details = ast.literal_eval(file_item.pickcode)
+                logger.info(f"【远程STRM通知】解析文件详情成功: {file_details}")
             except (ValueError, SyntaxError) as e:
                 logger.error(f"【远程STRM通知】解析文件pickcode失败: {e}, pickcode: {file_item.pickcode}")
                 return None
@@ -1817,11 +1825,13 @@ class P123StrmHelperRemote(_PluginBase):
                 "upload_time": datetime.now().isoformat()
             }
             
-            logger.info(f"【远程STRM通知】成功获取文件信息: {file_name}, size: {file_info['file_size']}, md5: {file_info['file_md5']}")
+            logger.info(f"【远程STRM通知】成功获取文件信息: {file_name}, size: {file_info['file_size']}, md5: {file_info['file_md5']}, s3_key_flag: {file_info['s3_key_flag']}")
             return file_info
             
         except Exception as e:
             logger.error(f"【远程STRM通知】从123云盘获取文件信息失败: {e}")
+            import traceback
+            logger.error(f"【远程STRM通知】详细错误信息: {traceback.format_exc()}")
             return None
 
     async def _generate_strm_from_notification(self, file_info: dict, media_info: dict) -> dict:
@@ -1900,18 +1910,26 @@ class P123StrmHelperRemote(_PluginBase):
             file_name = file_info.get("file_name", "")
             pan_path = file_info.get("pan_path", "")
             
+            logger.info(f"【远程STRM生成】开始创建STRM文件: {file_name} at {pan_path}")
+            
             # 根据配置的路径映射来确定本地STRM文件保存路径
             if not self._transfer_monitor_paths:
                 logger.error("【远程STRM生成】未配置整理事件监控目录，无法确定STRM文件保存路径")
+                logger.error(f"【远程STRM生成】当前配置: {self._transfer_monitor_paths}")
                 return ""
+            
+            logger.info(f"【远程STRM生成】整理事件监控目录配置: {self._transfer_monitor_paths}")
             
             # 使用路径映射配置来找到对应的本地目录
             has_mapping, local_media_dir, pan_media_dir = self.__get_media_path(
                 self._transfer_monitor_paths, pan_path
             )
             
+            logger.info(f"【远程STRM生成】路径映射结果: has_mapping={has_mapping}, local_media_dir={local_media_dir}, pan_media_dir={pan_media_dir}")
+            
             if not has_mapping:
                 logger.error(f"【远程STRM生成】网盘路径 {pan_path} 未找到对应的本地路径映射，请检查整理事件监控目录配置")
+                logger.error(f"【远程STRM生成】可用的路径映射: {self._transfer_monitor_paths}")
                 return ""
             
             # 计算相对路径
@@ -1920,11 +1938,15 @@ class P123StrmHelperRemote(_PluginBase):
                 # 如果相对路径为空，说明文件就在网盘媒体目录的根目录下
                 relative_path = file_name
             
+            logger.info(f"【远程STRM生成】计算相对路径: {relative_path}")
+            
             # 构建本地STRM文件路径
             relative_path_obj = Path(relative_path)
             strm_filename = relative_path_obj.stem + ".strm"
             # 确保STRM文件与原始文件在同一目录下
             local_strm_path = Path(local_media_dir) / relative_path_obj.parent / strm_filename
+            
+            logger.info(f"【远程STRM生成】目标STRM文件路径: {local_strm_path}")
             
             # 创建目录
             local_strm_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1938,6 +1960,8 @@ class P123StrmHelperRemote(_PluginBase):
             
         except Exception as e:
             logger.error(f"【远程STRM生成】创建STRM文件时发生错误: {e}")
+            import traceback
+            logger.error(f"【远程STRM生成】详细错误信息: {traceback.format_exc()}")
             return ""
 
     async def _refresh_media_servers(self, file_info: dict, media_info: dict, strm_path: str) -> dict:
