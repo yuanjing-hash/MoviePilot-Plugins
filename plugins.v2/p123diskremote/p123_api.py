@@ -24,9 +24,10 @@ class P123Api:
     # FileId和路径缓存
     _id_cache: Dict[str, str] = {}
 
-    def __init__(self, client: P123Client, disk_name: str):
+    def __init__(self, client: P123Client, disk_name: str, upload_callback=None):
         self.client = client
         self._disk_name = disk_name
+        self._upload_callback = upload_callback
 
     def _path_to_id(self, path: str):
         """
@@ -408,7 +409,7 @@ class P123Api:
                 logger.info(f"【123】{target_name} 秒传成功")
                 logger.debug(resp)
                 data = resp.get("data", {}).get("Info", None)
-                return schemas.FileItem(
+                result = schemas.FileItem(
                     storage=self._disk_name,
                     fileid=str(data["FileId"]),
                     path=str(target_path) + ("/" if data["Type"] == 1 else ""),
@@ -424,6 +425,15 @@ class P123Api:
                         datetime.fromisoformat(data["UpdateAt"]).timestamp()
                     ),
                 )
+                
+                # 调用上传完成回调（秒传也算上传完成）
+                if self._upload_callback:
+                    try:
+                        self._upload_callback(result, local_path)
+                    except Exception as e:
+                        logger.error(f"【123】秒传完成回调执行失败: {e}")
+                
+                return result
         except Exception as e:
             logger.error(f"【123】{target_name} 秒传出现未知错误：{e}")
             return None
@@ -534,6 +544,14 @@ class P123Api:
             )
             
             logger.info(f"【123】{target_name} 上传成功，返回结果: {result.name}")
+            
+            # 调用上传完成回调
+            if self._upload_callback:
+                try:
+                    self._upload_callback(result, local_path)
+                except Exception as e:
+                    logger.error(f"【123】上传完成回调执行失败: {e}")
+            
             return result
         except Exception as e:
             logger.error(f"【123】{target_name} 上传出现未知错误：{e}")

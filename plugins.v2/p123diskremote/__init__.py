@@ -58,7 +58,7 @@ class P123DiskRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.7"
+    plugin_version = "2.0.8"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -116,7 +116,7 @@ class P123DiskRemote(_PluginBase):
 
             try:
                 self._client = P123AutoClient(self._passport, self._password)
-                self._p123_api = P123Api(client=self._client, disk_name=self._disk_name)
+                self._p123_api = P123Api(client=self._client, disk_name=self._disk_name, upload_callback=self._on_upload_complete)
             except Exception as e:
                 logger.error(f"123云盘客户端创建失败: {e}")
 
@@ -294,8 +294,8 @@ class P123DiskRemote(_PluginBase):
             return
         event_data: StorageOperSelectionEventData = event.event_data
         if event_data.storage == self._disk_name:
-            # 处理云盘的操作，使用包装类来拦截上传操作
-            event_data.storage_oper = self
+            # 处理云盘的操作
+            event_data.storage_oper = self._p123_api
 
     def list_files(
         self, fileitem: schemas.FileItem, recursion: bool = False
@@ -396,30 +396,7 @@ class P123DiskRemote(_PluginBase):
         if fileitem.storage != self._disk_name:
             return None
 
-        logger.info(f"【远程STRM通知】开始上传文件: {path.name} -> {fileitem.path}")
-        
-        result = self._p123_api.upload(fileitem, path, new_name)
-        
-        # 检查上传结果
-        if result:
-            logger.info(f"【远程STRM通知】文件上传成功: {result.name}")
-            logger.info(f"【远程STRM通知】配置检查: enable_strm_notification={self._enable_strm_notification}, strm_server_url={self._strm_server_url}")
-            
-            if self._enable_strm_notification and self._strm_server_url:
-                # 检查文件扩展名是否在配置的列表中
-                should_notify = self._should_notify_file(result)
-                logger.info(f"【远程STRM通知】文件扩展名检查: {result.name} -> {should_notify}")
-                
-                if should_notify:
-                    self._notify_strm_server(result, path)
-                else:
-                    logger.info(f"【远程STRM通知】文件扩展名不在通知列表中，跳过通知: {result.name}")
-            else:
-                logger.info(f"【远程STRM通知】远程STRM通知未启用或URL未配置，跳过通知")
-        else:
-            logger.error(f"【远程STRM通知】文件上传失败: {path.name}")
-            
-        return result
+        return self._p123_api.upload(fileitem, path, new_name)
 
     def delete_file(self, fileitem: schemas.FileItem) -> Optional[bool]:
         """
@@ -744,50 +721,28 @@ class P123DiskRemote(_PluginBase):
         except Exception as e:
             logger.error(f"【MoviePilot通知】发送通知时发生错误: {e}")
 
+    def _on_upload_complete(self, uploaded_file: schemas.FileItem, local_path: Path):
+        """
+        上传完成回调方法
+        被p123_api在上传成功后调用
+        """
+        logger.info(f"【远程STRM通知】文件上传完成回调: {uploaded_file.name}")
+        
+        if self._enable_strm_notification and self._strm_server_url:
+            # 检查文件扩展名是否在配置的列表中
+            should_notify = self._should_notify_file(uploaded_file)
+            logger.info(f"【远程STRM通知】文件扩展名检查: {uploaded_file.name} -> {should_notify}")
+            
+            if should_notify:
+                self._notify_strm_server(uploaded_file, local_path)
+            else:
+                logger.info(f"【远程STRM通知】文件扩展名不在通知列表中，跳过通知: {uploaded_file.name}")
+        else:
+            logger.info(f"【远程STRM通知】远程STRM通知未启用或URL未配置，跳过通知")
+
     def stop_service(self):
         """
         退出插件
         """
         pass
 
-    # === 存储API代理方法 ===
-    # 这些方法用于代理_p123_api的调用，其中upload方法会触发远程STRM通知
-    
-    def list(self, fileitem: schemas.FileItem) -> Optional[List[schemas.FileItem]]:
-        """代理list方法"""
-        return self._p123_api.list(fileitem)
-    
-    def create_folder(self, fileitem: schemas.FileItem, name: str) -> Optional[schemas.FileItem]:
-        """代理create_folder方法"""
-        return self._p123_api.create_folder(fileitem=fileitem, name=name)
-    
-    def download(self, fileitem: schemas.FileItem, path: Path) -> Optional[Path]:
-        """代理download方法"""
-        return self._p123_api.download(fileitem, path)
-    
-    def upload(self, fileitem: schemas.FileItem, path: Path, new_name: str = None) -> Optional[schemas.FileItem]:
-        """
-        代理upload方法，并触发远程STRM通知
-        这个方法会被存储系统直接调用
-        """
-        return self.upload_file(fileitem, path, new_name)
-    
-    def delete(self, fileitem: schemas.FileItem) -> Optional[bool]:
-        """代理delete方法"""
-        return self._p123_api.delete(fileitem)
-    
-    def rename(self, fileitem: schemas.FileItem, name: str) -> Optional[bool]:
-        """代理rename方法"""
-        return self._p123_api.rename(fileitem, name)
-    
-    def get_item(self, path: Path) -> Optional[schemas.FileItem]:
-        """代理get_item方法"""
-        return self._p123_api.get_item(path)
-    
-    def get_parent(self, fileitem: schemas.FileItem) -> Optional[schemas.FileItem]:
-        """代理get_parent方法"""
-        return self._p123_api.get_parent(fileitem)
-    
-    def usage(self) -> Optional[schemas.StorageUsage]:
-        """代理usage方法"""
-        return self._p123_api.usage()
