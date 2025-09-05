@@ -58,7 +58,7 @@ class P123DiskRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.3"
+    plugin_version = "2.0.4"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -568,18 +568,17 @@ class P123DiskRemote(_PluginBase):
         :param local_path: 本地文件路径
         """
         try:
-            # 解析文件信息
-            try:
-                file_info = json.loads(uploaded_file.pickcode)
-            except (json.JSONDecodeError, TypeError) as e:
-                logger.error(f"【远程STRM通知】解析文件信息失败: {e}, pickcode: {uploaded_file.pickcode}")
-                return
+            # 构建通知数据 - 使用新的简化API格式，不再需要解析pickcode
+            # 从文件路径中提取目录路径（去掉文件名）
+            file_path = Path(uploaded_file.path)
+            pan_path = str(file_path.parent) if file_path.parent != file_path else str(file_path).rsplit('/', 1)[0]
             
-            # 构建通知数据 - 使用新的简化API格式
             notification_data = {
                 "file_name": uploaded_file.name,
-                "pan_path": uploaded_file.path
+                "pan_path": pan_path
             }
+            
+            logger.info(f"【远程STRM通知】准备发送通知: file_name={uploaded_file.name}, pan_path={pan_path}")
             
             # 发送HTTP通知 - 使用MoviePilot内置API密钥
             headers = {
