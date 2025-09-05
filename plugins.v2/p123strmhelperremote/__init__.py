@@ -269,7 +269,7 @@ class FullSyncStrmHelper:
 
                         new_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-                        strm_url = f"{self.server_address}/api/v1/plugin/P123StrmHelper/redirect_url?apikey={settings.API_TOKEN}&name={item['FileName']}&size={item['Size']}&md5={item['Etag']}&s3_key_flag={item['S3KeyFlag']}"
+                        strm_url = f"{self.server_address}/api/v1/plugin/P123StrmHelperRemote/redirect_url?apikey={settings.API_TOKEN}&name={item['FileName']}&size={item['Size']}&md5={item['Etag']}&s3_key_flag={item['S3KeyFlag']}"
 
                         with open(new_file_path, "w", encoding="utf-8") as file:
                             file.write(strm_url)
@@ -419,7 +419,7 @@ class ShareStrmHelper:
 
                 new_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-                strm_url = f"{self.server_address}/api/v1/plugin/P123StrmHelper/redirect_url?apikey={settings.API_TOKEN}&name={item['FileName']}&size={item['Size']}&md5={item['Etag']}&s3_key_flag={item['S3KeyFlag']}"
+                strm_url = f"{self.server_address}/api/v1/plugin/P123StrmHelperRemote/redirect_url?apikey={settings.API_TOKEN}&name={item['FileName']}&size={item['Size']}&md5={item['Etag']}&s3_key_flag={item['S3KeyFlag']}"
 
                 with open(new_file_path, "w", encoding="utf-8") as file:
                     file.write(strm_url)
@@ -465,7 +465,7 @@ class P123StrmHelperRemote(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "2.0.5"
+    plugin_version = "2.0.6"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -1765,7 +1765,7 @@ class P123StrmHelperRemote(_PluginBase):
             s3_key_flag = file_info.get("s3_key_flag", "")
             pan_path = file_info.get("pan_path", "")
             
-            # 构建STRM URL
+            # 构建STRM URL - 使用当前插件的名称
             strm_url = f"{self.moviepilot_address.rstrip('/')}/api/v1/plugin/P123StrmHelperRemote/redirect_url?apikey={settings.API_TOKEN}&name={file_name}&size={file_size}&md5={file_md5}&s3_key_flag={s3_key_flag}"
             
             # 这里需要根据你的配置来确定本地STRM文件保存路径
@@ -2017,7 +2017,7 @@ class P123StrmHelperRemote(_PluginBase):
             )
             return
 
-        strm_url = f"{self.moviepilot_address.rstrip('/')}/api/v1/plugin/P123StrmHelper/redirect_url?apikey={settings.API_TOKEN}&name={item_dest_info['FileName']}&size={item_dest_info['Size']}&md5={item_dest_info['Etag']}&s3_key_flag={item_dest_info['S3KeyFlag']}"
+        strm_url = f"{self.moviepilot_address.rstrip('/')}/api/v1/plugin/P123StrmHelperRemote/redirect_url?apikey={settings.API_TOKEN}&name={item_dest_info['FileName']}&size={item_dest_info['Size']}&md5={item_dest_info['Etag']}&s3_key_flag={item_dest_info['S3KeyFlag']}"
 
         status, strm_target_path = generate_strm_files(
             target_dir=local_media_dir,
