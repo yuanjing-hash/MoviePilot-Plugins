@@ -504,13 +504,21 @@ class P123Api:
                     )
 
             upload_data["isMultipart"] = file_size > slice_size
+            logger.info(f"【123】完成上传: {target_name}，开始调用upload_complete")
+            
             complete_resp = self.client.upload_complete(
                 upload_data,
             )
             check_response(complete_resp)
+            
+            logger.info(f"【123】上传完成响应: {complete_resp}")
 
             data = complete_resp.get("data", {}).get("file_info", None)
-            return schemas.FileItem(
+            if not data:
+                logger.error(f"【123】上传完成响应中缺少file_info数据: {complete_resp}")
+                return None
+            
+            result = schemas.FileItem(
                 storage=self._disk_name,
                 fileid=str(data["FileId"]),
                 path=str(target_path) + ("/" if data["Type"] == 1 else ""),
@@ -524,6 +532,9 @@ class P123Api:
                 size=data["Size"] if data["Type"] == 0 else None,
                 modify_time=int(datetime.fromisoformat(data["UpdateAt"]).timestamp()),
             )
+            
+            logger.info(f"【123】{target_name} 上传成功，返回结果: {result.name}")
+            return result
         except Exception as e:
             logger.error(f"【123】{target_name} 上传出现未知错误：{e}")
             return None
