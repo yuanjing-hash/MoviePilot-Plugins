@@ -8,7 +8,7 @@ from app.log import logger
 from app.plugins import _PluginBase
 from app.schemas.types import EventType
 from app.schemas import Notification, NotificationType
-from p123client.tool.util import share_extract_payload
+from p123client.tool import share_iterdir
 
 
 class P123AutoClient:
@@ -52,7 +52,7 @@ class P123Share(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "0.0.3"
+    plugin_version = "0.0.4"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -233,9 +233,15 @@ class P123Share(_PluginBase):
             if not self._client:
                 raise Exception("123云盘客户端未初始化，请检查插件配置")
 
-            payload = share_extract_payload(share_link)
-            share_key = payload.get("ShareKey")
-            share_pwd = payload.get("SharePwd", "")
+            try:
+                share_info_iterator = share_iterdir(share_link, max_depth=0)
+                first_item = next(share_info_iterator)
+                share_key = first_item.get("ShareKey")
+                share_pwd = first_item.get("SharePwd", "")
+            except StopIteration:
+                raise Exception("无法从分享链接中获取文件信息，请检查链接是否有效")
+            except Exception as e:
+                raise Exception(f"解析分享链接失败: {e}")
 
             if not share_key:
                 raise Exception("无法从链接中解析出 ShareKey")
