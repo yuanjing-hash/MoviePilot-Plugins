@@ -448,11 +448,12 @@
         "name": "123分享转存",
         "description": "通过消息或Web界面转存123云盘分享链接。",
         "labels": "云盘, 工具",
-        "version": "0.0.4",
+        "version": "0.0.5",
         "icon": "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png",
         "author": "yuanjing",
         "level": 1,
         "history": {
+            "v0.0.5": "测试版本5",
             "v0.0.4": "测试版本4",
             "v0.0.3": "测试版本3",
             "v0.0.2": "测试版本2",

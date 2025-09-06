@@ -52,7 +52,7 @@ class P123Share(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "0.0.4"
+    plugin_version = "0.0.5"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -92,6 +92,25 @@ class P123Share(_PluginBase):
 
     def get_state(self) -> bool:
         return self._enabled
+
+    @staticmethod
+    def get_command() -> List[Dict[str, Any]]:
+        """
+        定义远程控制命令
+        """
+        return []
+
+    def get_api(self) -> List[Dict[str, Any]]:
+        """
+        获取插件API
+        """
+        return []
+
+    def get_page(self) -> List[dict]:
+        """
+        插件页面
+        """
+        pass
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         return [
