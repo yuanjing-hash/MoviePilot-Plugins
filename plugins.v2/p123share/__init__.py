@@ -52,7 +52,7 @@ class P123Share(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "0.2.0"
+    plugin_version = "0.2.1"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -72,7 +72,6 @@ class P123Share(_PluginBase):
 
     def __init__(self):
         super().__init__()
-        eventmanager.register(EventType.UserMessage, self.handle_message)
 
     def init_plugin(self, config: dict = None):
         if config:
@@ -384,6 +383,7 @@ class P123Share(_PluginBase):
             "transfer_save_path": "/",
         }
 
+    @eventmanager.register(EventType.UserMessage)
     def handle_message(self, event: Event):
         if not self._enabled or not self._client:
             return
@@ -695,5 +695,7 @@ class P123Share(_PluginBase):
             }, status_code=500)
 
     def stop_service(self):
-        eventmanager.unregister(EventType.UserMessage, self.handle_message)
+        """
+        退出插件
+        """
         pass
