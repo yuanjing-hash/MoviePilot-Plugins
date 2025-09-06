@@ -451,6 +451,9 @@
         "version": "1.0",
         "icon": "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png",
         "author": "yuanjing",
-        "level": 1
+        "level": 1,
+        "history": {
+            "v0.0.1": "测试版本"
+        }
     }
 }

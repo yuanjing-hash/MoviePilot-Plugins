@@ -20,11 +20,11 @@ class P123Share(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "1.0"
+    plugin_version = "0.0.1"
     # 插件作者
-    plugin_author = "Gemini"
+    plugin_author = "yuanjing"
     # 作者主页
-    author_url = "https://github.com/google/gemini"
+    author_url = "https://github.com/yuanjing-hash"
     # 插件配置项ID前缀
     plugin_config_prefix = "p123share_"
     # 加载顺序
