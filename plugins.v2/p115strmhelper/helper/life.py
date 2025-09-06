@@ -2,7 +2,7 @@ import shutil
 import time
 from collections import defaultdict
 from threading import Timer
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Set
 from pathlib import Path
 from itertools import batched, chain
 
@@ -21,7 +21,11 @@ from ..helper.mediasyncdel import MediaSyncDelHelper
 from p115client import P115Client
 from p115client.tool.attr import get_path
 from p115client.tool.iterdir import iter_files_with_path
-from p115client.tool.life import iter_life_behavior_once, life_show
+from p115client.tool.life import (
+    iter_life_behavior_once,
+    life_show,
+    BEHAVIOR_TYPE_TO_NAME,
+)
 
 from app.schemas import NotificationType, ServiceInfo, RefreshMediaItem, FileItem
 from app.log import logger
@@ -70,8 +74,9 @@ class MonitorLife:
             lambda: {"strm_count": 0, "mediainfo_count": 0}
         )
 
-        self.rmt_mediaext = None
-        self.download_mediaext = None
+        self.rmt_mediaext: List = []
+        self.rmt_mediaext_set: Set = set()
+        self.download_mediaext_set: Set = set()
 
     def _schedule_notification(self):
         """
@@ -392,7 +397,7 @@ class MonitorLife:
                         if configer.get_config(
                             "monitor_life_auto_download_mediainfo_enabled"
                         ):
-                            if file_path.suffix.lower() in self.download_mediaext:
+                            if file_path.suffix.lower() in self.download_mediaext_set:
                                 pickcode = item["pickcode"]
                                 if not pickcode:
                                     logger.error(
@@ -419,7 +424,7 @@ class MonitorLife:
                                 mediainfo_count += 1
                                 continue
 
-                        if file_path.suffix.lower() not in self.rmt_mediaext:
+                        if file_path.suffix.lower() not in self.rmt_mediaext_set:
                             logger.warn(
                                 "【监控生活事件】跳过网盘路径: %s",
                                 item["path"],
@@ -510,7 +515,7 @@ class MonitorLife:
                 new_file_path = file_target_dir / file_name
 
                 if configer.get_config("monitor_life_auto_download_mediainfo_enabled"):
-                    if file_path.suffix.lower() in self.download_mediaext:
+                    if file_path.suffix.lower() in self.download_mediaext_set:
                         if not pickcode:
                             logger.error(
                                 f"【监控生活事件】{original_file_name} 不存在 pickcode 值，无法下载该文件"
@@ -544,7 +549,7 @@ class MonitorLife:
                             self._schedule_notification()
                         return
 
-                if file_path.suffix.lower() not in self.rmt_mediaext:
+                if file_path.suffix.lower() not in self.rmt_mediaext_set:
                     logger.warn(
                         "【监控生活事件】跳过网盘路径: %s",
                         str(file_path).replace(str(target_dir), "", 1),
@@ -721,7 +726,7 @@ class MonitorLife:
             return
 
         file_path = Path(target_dir) / Path(file_path).relative_to(pan_media_dir)
-        if file_path.suffix.lower() in self.rmt_mediaext:
+        if file_path.suffix.lower() in self.rmt_mediaext_set:
             file_target_dir = file_path.parent
             file_name = file_path.stem + ".strm"
             file_path = file_target_dir / file_name
@@ -829,25 +834,52 @@ class MonitorLife:
             time.sleep(20)
 
         events_batch: List = []
-        first_loop: bool = True
-        for event in iter_life_behavior_once(
-            client=self._client,
-            from_time=from_time,
-            from_id=from_id,
-            app="web",
-            cooldown=2,
-        ):
-            if first_loop:
-                if "update_time" in event and "id" in event:
-                    from_id = int(event["id"])
-                    from_time = int(event["update_time"])
+        return_from_time: int = from_time
+        return_from_id: int = from_id
+
+        for attempt in range(3, -1, -1):
+            try:
+                # 每次尝试先清空旧的值
+                events_batch: List = []
+                return_from_time: int = from_time
+                return_from_id: int = from_id
+
+                events_iterator = iter_life_behavior_once(
+                    client=self._client,
+                    from_time=from_time,
+                    from_id=from_id,
+                    app="web",
+                    cooldown=2,
+                )
+
+                try:
+                    first_event = next(events_iterator)
+                except StopIteration:
+                    # 迭代器为空，没有数据，属于正常情况
+                    break
+
+                if "update_time" in first_event and "id" in first_event:
+                    return_from_id = int(first_event["id"])
+                    return_from_time = int(first_event["update_time"])
                 else:
                     break
-                first_loop = False
-            events_batch.append(event)
+
+                events_batch = [first_event]
+                events_batch.extend(list(events_iterator))
+                break
+            except Exception as e:
+                if attempt <= 0:
+                    logger.error("【监控生活事件】拉取数据失败：%s", e)
+                    raise
+                logger.warn(
+                    "【监控生活事件】拉取数据失败，剩余重试次数 {attempt} 次：%s", e
+                )
+                time.sleep(2)
+
         if not events_batch:
             time.sleep(20)
             return from_time, from_id
+
         for event in reversed(events_batch):
             self.rmt_mediaext = [
                 f".{ext.strip()}"
@@ -855,12 +887,18 @@ class MonitorLife:
                 .replace("，", ",")
                 .split(",")
             ]
-            self.download_mediaext = [
+            self.rmt_mediaext_set = set(self.rmt_mediaext)
+            self.download_mediaext_set = {
                 f".{ext.strip()}"
                 for ext in configer.get_config("user_download_mediaext")
                 .replace("，", ",")
                 .split(",")
-            ]
+            }
+
+            logger.debug(
+                f"【监控生活事件】{BEHAVIOR_TYPE_TO_NAME[event['type']]}: {event}"
+            )
+
             if (
                 int(event["type"]) != 1
                 and int(event["type"]) != 2
@@ -910,7 +948,7 @@ class MonitorLife:
                         event=event, file_path=file_path
                     )
                 )
-        return from_time, from_id
+        return return_from_time, return_from_id
 
     def check_status(self):
         """
