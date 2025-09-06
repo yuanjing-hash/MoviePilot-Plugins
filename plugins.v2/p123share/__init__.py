@@ -52,7 +52,7 @@ class P123Share(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "0.0.6"
+    plugin_version = "0.1.1"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -104,13 +104,144 @@ class P123Share(_PluginBase):
         """
         获取插件API
         """
-        return []
+        return [
+            {
+                "path": "/transfer",
+                "endpoint": self.api_transfer,
+                "methods": ["POST"],
+                "summary": "转存分享链接",
+                "description": "转存123云盘分享链接到指定目录",
+            },
+            {
+                "path": "/browse_folders",
+                "endpoint": self.api_browse_folders,
+                "methods": ["GET"],
+                "summary": "浏览网盘文件夹",
+                "description": "获取网盘文件夹列表用于选择保存路径",
+            }
+        ]
 
     def get_page(self) -> List[dict]:
         """
         插件页面
         """
-        pass
+        return [
+            {
+                "component": "div",
+                "text": "123分享转存",
+                "props": {
+                    "class": "text-h4 mb-4"
+                }
+            },
+            {
+                "component": "VCard",
+                "props": {
+                    "class": "mb-4"
+                },
+                "content": [
+                    {
+                        "component": "VCardTitle",
+                        "text": "转存分享链接"
+                    },
+                    {
+                        "component": "VCardText",
+                        "content": [
+                            {
+                                "component": "VTextField",
+                                "props": {
+                                    "model": "shareLink",
+                                    "label": "123云盘分享链接",
+                                    "placeholder": "https://www.123684.com/s/xxxxx?提取码:1234 或 https://www.123684.com/s/xxxxx",
+                                    "hint": "请输入123云盘的分享链接，支持带提取码的链接",
+                                    "persistent-hint": True,
+                                    "clearable": True
+                                }
+                            },
+                            {
+                                "component": "VTextField",
+                                "props": {
+                                    "model": "sharePassword",
+                                    "label": "提取码（可选）",
+                                    "placeholder": "1234",
+                                    "hint": "如果分享链接需要提取码，请在此输入。如果链接中已包含提取码，可留空",
+                                    "persistent-hint": True,
+                                    "clearable": True
+                                }
+                            },
+                            {
+                                "component": "VTextField",
+                                "props": {
+                                    "model": "savePath",
+                                    "label": "保存路径",
+                                    "placeholder": "/我的资源/电影",
+                                    "hint": "文件将保存到此网盘路径下，留空使用默认路径",
+                                    "persistent-hint": True,
+                                    "clearable": True
+                                }
+                            },
+                            {
+                                "component": "VBtn",
+                                "props": {
+                                    "color": "primary",
+                                    "variant": "elevated",
+                                    "loading": "transferring",
+                                    "disabled": "!shareLink"
+                                },
+                                "text": "开始转存",
+                                "events": {
+                                    "click": "startTransfer"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "component": "VCard",
+                "props": {
+                    "class": "mb-4"
+                },
+                "content": [
+                    {
+                        "component": "VCardTitle",
+                        "text": "使用说明"
+                    },
+                    {
+                        "component": "VCardText",
+                        "content": [
+                            {
+                                "component": "div",
+                                "text": "支持两种使用方式："
+                            },
+                            {
+                                "component": "div",
+                                "text": "1. 网页操作：在上方输入分享链接和保存路径，点击开始转存"
+                            },
+                            {
+                                "component": "div",
+                                "text": "2. 消息命令：发送 /transfer <分享链接> [保存路径]"
+                            },
+                            {
+                                "component": "div",
+                                "text": "支持的分享链接格式："
+                            },
+                            {
+                                "component": "div",
+                                "text": "• https://www.123684.com/s/xxxxx（无密码）"
+                            },
+                            {
+                                "component": "div",
+                                "text": "• https://www.123684.com/s/xxxxx?提取码:1234（带密码）"
+                            },
+                            {
+                                "component": "div",
+                                "text": "注意：使用前请先在插件设置中配置123云盘账号密码"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         return [
@@ -214,6 +345,127 @@ class P123Share(_PluginBase):
 
         Thread(target=self.handle_transfer_task, args=(share_link, save_path, channel, userid)).start()
 
+    def _parse_share_link(self, share_link: str, manual_password: str = "") -> tuple:
+        """
+        解析分享链接，提取ShareKey和SharePwd
+        """
+        import re
+        
+        # 尝试从链接中提取提取码
+        extracted_password = ""
+        
+        # 匹配各种可能的提取码格式
+        password_patterns = [
+            r'提取码[：:]\s*([a-zA-Z0-9]+)',
+            r'密码[：:]\s*([a-zA-Z0-9]+)',
+            r'pwd[：:]\s*([a-zA-Z0-9]+)',
+            r'password[：:]\s*([a-zA-Z0-9]+)',
+        ]
+        
+        for pattern in password_patterns:
+            match = re.search(pattern, share_link, re.IGNORECASE)
+            if match:
+                extracted_password = match.group(1)
+                # 清理链接，移除提取码部分
+                share_link = re.sub(r'[?&].*', '', share_link)
+                break
+        
+        # 优先使用手动输入的密码，其次使用从链接提取的密码
+        final_password = manual_password or extracted_password
+        
+        # 提取ShareKey（从URL中提取）
+        share_key_match = re.search(r'/s/([a-zA-Z0-9]+)', share_link)
+        if not share_key_match:
+            raise Exception("无法从分享链接中提取ShareKey，请检查链接格式")
+        
+        share_key = share_key_match.group(1)
+        
+        return share_key, final_password
+
+    async def api_transfer(self, request):
+        """
+        API接口：转存分享链接
+        """
+        try:
+            from fastapi import Request
+            from fastapi.responses import JSONResponse
+            
+            data = await request.json()
+            share_link = data.get("shareLink", "").strip()
+            share_password = data.get("sharePassword", "").strip()
+            save_path = data.get("savePath", "").strip() or self._transfer_save_path
+            
+            if not share_link:
+                return JSONResponse({
+                    "success": False,
+                    "message": "请输入分享链接"
+                }, status_code=400)
+            
+            if not self._client:
+                return JSONResponse({
+                    "success": False,
+                    "message": "123云盘客户端未初始化，请检查插件配置"
+                }, status_code=400)
+            
+            # 在后台执行转存任务
+            result = self.handle_transfer_task(share_link, save_path, share_password=share_password)
+            
+            return JSONResponse({
+                "success": result.get("success", False),
+                "message": result.get("message", "转存完成")
+            })
+            
+        except Exception as e:
+            logger.error(f"API转存失败: {e}", exc_info=True)
+            return JSONResponse({
+                "success": False,
+                "message": f"转存失败: {str(e)}"
+            }, status_code=500)
+
+    async def api_browse_folders(self, request):
+        """
+        API接口：浏览网盘文件夹
+        """
+        try:
+            from fastapi import Request
+            from fastapi.responses import JSONResponse
+            
+            parent_id = request.query_params.get("parent_id", "0")
+            
+            if not self._client:
+                return JSONResponse({
+                    "success": False,
+                    "message": "123云盘客户端未初始化"
+                }, status_code=400)
+            
+            file_list = self._client.list(parent_file_id=int(parent_id))
+            if not file_list or file_list.get("code") != 0:
+                return JSONResponse({
+                    "success": False,
+                    "message": "获取文件夹列表失败"
+                }, status_code=400)
+            
+            folders = []
+            for item in file_list.get("data", []):
+                if item.get("IsDir"):
+                    folders.append({
+                        "id": item.get("FileID"),
+                        "name": item.get("FileName"),
+                        "path": item.get("Path", "")
+                    })
+            
+            return JSONResponse({
+                "success": True,
+                "data": folders
+            })
+            
+        except Exception as e:
+            logger.error(f"浏览文件夹失败: {e}", exc_info=True)
+            return JSONResponse({
+                "success": False,
+                "message": f"浏览文件夹失败: {str(e)}"
+            }, status_code=500)
+
     def _get_folder_id_by_path(self, path: str) -> int:
         if path == "/":
             return 0
@@ -236,7 +488,7 @@ class P123Share(_PluginBase):
         
         return current_id
 
-    def handle_transfer_task(self, share_link: str, save_path: str, channel: str = None, userid: str = None):
+    def handle_transfer_task(self, share_link: str, save_path: str, channel: str = None, userid: str = None, share_password: str = ""):
         def notify(title, text):
             if channel and userid:
                 self.post_message(
@@ -252,18 +504,10 @@ class P123Share(_PluginBase):
             if not self._client:
                 raise Exception("123云盘客户端未初始化，请检查插件配置")
 
-            try:
-                share_info_iterator = share_iterdir(share_link, max_depth=0)
-                first_item = next(share_info_iterator)
-                share_key = first_item.get("ShareKey")
-                share_pwd = first_item.get("SharePwd", "")
-            except StopIteration:
-                raise Exception("无法从分享链接中获取文件信息，请检查链接是否有效")
-            except Exception as e:
-                raise Exception(f"解析分享链接失败: {e}")
-
-            if not share_key:
-                raise Exception("无法从链接中解析出 ShareKey")
+            # 解析分享链接
+            share_key, share_pwd = self._parse_share_link(share_link, share_password)
+            
+            logger.info(f"解析分享链接成功: ShareKey={share_key}, 有密码={bool(share_pwd)}")
 
             file_ids = []  # Empty list to save all files from share
             parent_id = self._get_folder_id_by_path(save_path)
