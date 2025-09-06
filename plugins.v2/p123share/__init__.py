@@ -7,7 +7,6 @@ from app.core.event import eventmanager, Event
 from app.log import logger
 from app.plugins import _PluginBase
 from app.schemas.types import EventType
-from app.chain.plugin import PluginChain
 from app.schemas import Notification, NotificationType
 from p123client.tool.util import share_extract_payload
 
@@ -53,7 +52,7 @@ class P123Share(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "0.0.2"
+    plugin_version = "0.0.3"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -183,7 +182,7 @@ class P123Share(_PluginBase):
 
         parts = message.split()
         if len(parts) < 2:
-            PluginChain().post_message(
+            self.post_message(
                 Notification(
                     channel=channel, userid=userid, mtype=NotificationType.Plugin,
                     title="命令错误", text="格式：/transfer <分享链接> [保存路径]"
@@ -219,10 +218,9 @@ class P123Share(_PluginBase):
         return current_id
 
     def handle_transfer_task(self, share_link: str, save_path: str, channel: str = None, userid: str = None):
-        plugin_chain = PluginChain()
         def notify(title, text):
             if channel and userid:
-                plugin_chain.post_message(
+                self.post_message(
                     Notification(
                         channel=channel, userid=userid, mtype=NotificationType.Plugin,
                         title=title, text=text
