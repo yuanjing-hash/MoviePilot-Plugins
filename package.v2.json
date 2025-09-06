@@ -443,5 +443,14 @@
             "v1.1.0": "支持远程通知接收，自动刷新媒体服务器，完整入库回调",
             "v1.0.16": "基础STRM生成功能"
         }
+    },
+    "P123Share": {
+        "name": "123分享转存",
+        "description": "通过消息或Web界面转存123云盘分享链接。",
+        "labels": "云盘, 工具",
+        "version": "1.0",
+        "icon": "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png",
+        "author": "yuanjing",
+        "level": 1
     }
 }
