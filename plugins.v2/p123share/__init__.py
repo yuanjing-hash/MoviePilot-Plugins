@@ -12,6 +12,39 @@ from app.schemas import Notification, NotificationType
 from p123client.tool.util import share_extract_payload
 
 
+class P123AutoClient:
+    """
+    123云盘自动重连客户端
+    """
+    def __init__(self, passport, password):
+        self._client = None
+        self._passport = passport
+        self._password = password
+
+    def __getattr__(self, name):
+        if self._client is None:
+            self._client = P123Client(self._passport, self._password)
+
+        def wrapped(*args, **kwargs):
+            attr = getattr(self._client, name)
+            if not callable(attr):
+                return attr
+            result = attr(*args, **kwargs)
+            if (
+                isinstance(result, dict)
+                and result.get("code") == 401
+                and result.get("message") == "tokens number has exceeded the limit"
+            ):
+                logger.info("123云盘Token失效，尝试重新登录...")
+                self._client = P123Client(self._passport, self._password)
+                attr = getattr(self._client, name)
+                if not callable(attr):
+                    return attr
+                return attr(*args, **kwargs)
+            return result
+        return wrapped
+
+
 class P123Share(_PluginBase):
     # 插件名称
     plugin_name = "123分享转存"
@@ -20,7 +53,7 @@ class P123Share(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "0.0.1"
+    plugin_version = "0.0.2"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -51,7 +84,7 @@ class P123Share(_PluginBase):
 
             if self._enabled and self._passport and self._password:
                 try:
-                    self._client = P123Client(self._passport, self._password)
+                    self._client = P123AutoClient(self._passport, self._password)
                 except Exception as e:
                     logger.error(f"123云盘客户端创建失败: {e}")
                     self._client = None
@@ -170,11 +203,9 @@ class P123Share(_PluginBase):
         
         current_id = 0
         for part in path_parts:
-            # Note: p123client file_list is deprecated, use list instead.
-            # Assuming the API is similar.
             file_list = self._client.list(parent_file_id=current_id) 
-            if not file_list or "data" not in file_list:
-                raise Exception(f"无法获取目录 '{part}' 的内容")
+            if not file_list or file_list.get("code") != 0 or "data" not in file_list:
+                raise Exception(f"无法获取目录 '{part}' 的内容，请检查路径或网盘连接")
             
             found = False
             for item in file_list["data"]:

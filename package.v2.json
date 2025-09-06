@@ -453,6 +453,7 @@
         "author": "yuanjing",
         "level": 1,
         "history": {
+            "v0.0.2": "测试版本2",
             "v0.0.1": "测试版本"
         }
     }
