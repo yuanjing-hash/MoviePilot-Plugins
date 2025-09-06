@@ -443,27 +443,5 @@
             "v1.1.0": "支持远程通知接收，自动刷新媒体服务器，完整入库回调",
             "v1.0.16": "基础STRM生成功能"
         }
-    },
-    "P123Share": {
-        "name": "123分享转存",
-        "description": "通过消息或Web界面转存123云盘分享链接。",
-        "labels": "云盘, 工具",
-        "version": "0.2.1",
-        "icon": "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png",
-        "author": "yuanjing",
-        "level": 1,
-        "history": {
-            "v0.2.1": "修复插件加载问题：移除eventmanager.unregister，使用装饰器注册事件，简化前端UI移除Vuetify依赖",
-            "v0.2.0": "实现Vue.js前端界面，支持完整的Web操作，修改消息命令为/123save",
-            "v0.1.2": "简化Web界面，移除不兼容的前端交互元素",
-            "v0.1.1": "支持带提取码的分享链接，增强链接解析功能",
-            "v0.1.0": "新增Web界面和API接口，支持网页操作转存",
-            "v0.0.6": "修复事件类型错误",
-            "v0.0.5": "修复抽象方法错误",
-            "v0.0.4": "修复导入错误",
-            "v0.0.3": "修复消息发送方式",
-            "v0.0.2": "增加自动重连客户端",
-            "v0.0.1": "测试版本"
-        }
     }
 }
