@@ -52,7 +52,7 @@ class P123Share(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "0.1.2"
+    plugin_version = "0.2.0"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -100,6 +100,14 @@ class P123Share(_PluginBase):
         """
         return []
 
+    @staticmethod
+    def get_render_mode() -> Tuple[str, Optional[str]]:
+        """
+        返回插件使用的前端渲染模式
+        :return: 前端渲染模式，前端文件目录
+        """
+        return "vue", "dist/assets"
+
     def get_api(self) -> List[Dict[str, Any]]:
         """
         获取插件API
@@ -118,6 +126,27 @@ class P123Share(_PluginBase):
                 "methods": ["GET"],
                 "summary": "浏览网盘文件夹",
                 "description": "获取网盘文件夹列表用于选择保存路径",
+            },
+            {
+                "path": "/save_config",
+                "endpoint": self.api_save_config,
+                "methods": ["POST"],
+                "summary": "保存插件配置",
+                "description": "保存插件配置信息",
+            },
+            {
+                "path": "/get_config",
+                "endpoint": self.api_get_config,
+                "methods": ["GET"],
+                "summary": "获取插件配置",
+                "description": "获取当前插件配置信息",
+            },
+            {
+                "path": "/test_connection",
+                "endpoint": self.api_test_connection,
+                "methods": ["POST"],
+                "summary": "测试123云盘连接",
+                "description": "测试123云盘账号密码是否正确",
             }
         ]
 
@@ -211,7 +240,7 @@ class P123Share(_PluginBase):
                             },
                             {
                                 "component": "div",
-                                "text": "1. 消息命令：发送 /transfer <分享链接> [保存路径]"
+                                "text": "1. 消息命令：发送 /123save <分享链接> [保存路径]"
                             },
                             {
                                 "component": "div",
@@ -259,7 +288,28 @@ class P123Share(_PluginBase):
             }
         ]
 
-    def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
+    def get_form(self) -> Tuple[Optional[List[dict]], Dict[str, Any]]:
+        """
+        为Vue组件模式返回初始配置数据。
+        Vue模式下，第一个参数返回None，第二个参数返回初始配置数据。
+        """
+        return None, {
+            "enabled": self._enabled,
+            "passport": self._passport or "",
+            "password": self._password or "",
+            "transfer_save_path": self._transfer_save_path or "/",
+        }
+
+    def get_page(self) -> Optional[List[dict]]:
+        """
+        Vue模式不使用Vuetify页面定义
+        """
+        return None
+
+    def get_legacy_form(self) -> Tuple[List[dict], Dict[str, Any]]:
+        """
+        传统模式的表单定义（保留作为备用）
+        """
         return [
             {
                 "component": "VForm",
@@ -343,7 +393,7 @@ class P123Share(_PluginBase):
         channel = event_data.get("channel")
         userid = event_data.get("userid")
 
-        if not message.startswith("/transfer"):
+        if not message.startswith("/123save"):
             return
 
         parts = message.split()
@@ -351,7 +401,7 @@ class P123Share(_PluginBase):
             self.post_message(
                 Notification(
                     channel=channel, userid=userid, mtype=NotificationType.Plugin,
-                    title="命令错误", text="格式：/transfer <分享链接> [保存路径]"
+                    title="命令错误", text="格式：/123save <分享链接> [保存路径]"
                 )
             )
             return
@@ -546,6 +596,103 @@ class P123Share(_PluginBase):
             logger.error(f"123云盘转存失败: {e}", exc_info=True)
             notify("转存失败", f"错误信息：{e}")
             return {"success": False, "message": str(e)}
+
+    async def api_save_config(self, request):
+        """
+        API接口：保存插件配置
+        """
+        try:
+            from fastapi import Request
+            from fastapi.responses import JSONResponse
+            
+            data = await request.json()
+            
+            # 更新配置
+            self._enabled = data.get("enabled", False)
+            self._passport = data.get("passport", "")
+            self._password = data.get("password", "")
+            self._transfer_save_path = data.get("transfer_save_path", "/")
+            
+            # 重新初始化客户端
+            if self._passport and self._password:
+                try:
+                    self._client = P123AutoClient(self._passport, self._password)
+                    logger.info("123云盘客户端重新初始化成功")
+                except Exception as e:
+                    logger.error(f"123云盘客户端初始化失败: {e}")
+                    self._client = None
+            else:
+                self._client = None
+            
+            return JSONResponse({
+                "code": 0,
+                "msg": "配置保存成功"
+            })
+            
+        except Exception as e:
+            logger.error(f"保存配置失败: {e}", exc_info=True)
+            return JSONResponse({
+                "code": 1,
+                "msg": f"保存配置失败: {e}"
+            }, status_code=500)
+
+    async def api_get_config(self, request):
+        """
+        API接口：获取插件配置
+        """
+        try:
+            return {
+                "enabled": self._enabled,
+                "passport": self._passport or "",
+                "password": self._password or "",
+                "transfer_save_path": self._transfer_save_path or "/",
+            }
+        except Exception as e:
+            logger.error(f"获取配置失败: {e}", exc_info=True)
+            return {"error": str(e)}
+
+    async def api_test_connection(self, request):
+        """
+        API接口：测试123云盘连接
+        """
+        try:
+            from fastapi import Request
+            from fastapi.responses import JSONResponse
+            
+            data = await request.json()
+            passport = data.get("passport", "")
+            password = data.get("password", "")
+            
+            if not passport or not password:
+                return JSONResponse({
+                    "success": False,
+                    "message": "请提供账号和密码"
+                }, status_code=400)
+            
+            # 测试连接
+            test_client = P123AutoClient(passport, password)
+            
+            # 尝试获取用户信息来验证登录
+            user_info = test_client.user_info()
+            
+            if user_info and user_info.get("code") == 0:
+                return JSONResponse({
+                    "success": True,
+                    "message": "连接测试成功",
+                    "user_info": user_info.get("data", {})
+                })
+            else:
+                return JSONResponse({
+                    "success": False,
+                    "message": "连接测试失败，请检查账号密码"
+                })
+                
+        except Exception as e:
+            logger.error(f"测试连接失败: {e}", exc_info=True)
+            return JSONResponse({
+                "success": False,
+                "message": f"连接测试失败: {e}"
+            }, status_code=500)
 
     def stop_service(self):
         eventmanager.unregister(EventType.UserMessage, self.handle_message)

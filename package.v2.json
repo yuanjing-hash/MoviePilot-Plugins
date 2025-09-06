@@ -448,11 +448,12 @@
         "name": "123分享转存",
         "description": "通过消息或Web界面转存123云盘分享链接。",
         "labels": "云盘, 工具",
-        "version": "0.1.2",
+        "version": "0.2.0",
         "icon": "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png",
         "author": "yuanjing",
         "level": 1,
         "history": {
+            "v0.2.0": "实现Vue.js前端界面，支持完整的Web操作，修改消息命令为/123save",
             "v0.1.2": "简化Web界面，移除不兼容的前端交互元素",
             "v0.1.1": "支持带提取码的分享链接，增强链接解析功能",
             "v0.1.0": "新增Web界面和API接口，支持网页操作转存",
