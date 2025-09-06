@@ -52,7 +52,7 @@ class P123Share(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/yuanjing-hash/MoviePilot-Plugins/main/icons/P123Disk.png"
     # 插件版本
-    plugin_version = "0.1.1"
+    plugin_version = "0.1.2"
     # 插件作者
     plugin_author = "yuanjing"
     # 作者主页
@@ -180,17 +180,13 @@ class P123Share(_PluginBase):
                                 }
                             },
                             {
-                                "component": "VBtn",
+                                "component": "VAlert",
                                 "props": {
-                                    "color": "primary",
-                                    "variant": "elevated",
-                                    "loading": "transferring",
-                                    "disabled": "!shareLink"
+                                    "type": "info",
+                                    "variant": "tonal",
+                                    "class": "mt-4"
                                 },
-                                "text": "开始转存",
-                                "events": {
-                                    "click": "startTransfer"
-                                }
+                                "text": "请使用消息命令或API接口进行转存操作"
                             }
                         ]
                     }
@@ -215,11 +211,11 @@ class P123Share(_PluginBase):
                             },
                             {
                                 "component": "div",
-                                "text": "1. 网页操作：在上方输入分享链接和保存路径，点击开始转存"
+                                "text": "1. 消息命令：发送 /transfer <分享链接> [保存路径]"
                             },
                             {
                                 "component": "div",
-                                "text": "2. 消息命令：发送 /transfer <分享链接> [保存路径]"
+                                "text": "2. API接口：POST /api/v1/plugin/P123Share/transfer"
                             },
                             {
                                 "component": "div",
@@ -232,6 +228,26 @@ class P123Share(_PluginBase):
                             {
                                 "component": "div",
                                 "text": "• https://www.123684.com/s/xxxxx?提取码:1234（带密码）"
+                            },
+                            {
+                                "component": "div",
+                                "text": "API使用示例："
+                            },
+                            {
+                                "component": "VCard",
+                                "props": {
+                                    "variant": "outlined",
+                                    "class": "mt-2 pa-3"
+                                },
+                                "content": [
+                                    {
+                                        "component": "pre",
+                                        "props": {
+                                            "style": "font-size: 12px; overflow-x: auto;"
+                                        },
+                                        "text": "curl -X POST /api/v1/plugin/P123Share/transfer \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"shareLink\": \"https://www.123684.com/s/xxxxx?提取码:1234\",\n    \"sharePassword\": \"\",\n    \"savePath\": \"/我的资源/电影\"\n  }'"
+                                    }
+                                ]
                             },
                             {
                                 "component": "div",
